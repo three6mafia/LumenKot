@@ -1,0 +1,109 @@
+{
+  "https://stackoverflow.com/a/65333050": [
+    "src/i18n/index.ts"
+  ],
+  "https://docs.infinite.red/ignite-cli/boilerplate/app/theme/Theming/": [
+    "src/theme/context.tsx"
+  ],
+  "https://docs.infinite.red/ignite-cli/boilerplate/app/theme/useAppTheme.tsx/": [
+    "src/theme/context.tsx"
+  ],
+  "https://docs.infinite.red/ignite-cli/boilerplate/app/utils/useSafeAreaInsetsStyle.ts/": [
+    "src/hooks/useSafeAreaInsetsStyle.ts"
+  ],
+  "https://github.com/infinitered/reactotron": [
+    "src/devtools/ReactotronConfig.ts",
+    "src/devtools/ReactotronConfig.ts"
+  ],
+  "https://github.com/falcofemoralis/lumen": [
+    "src/screen/SettingsScreen/SettingsScreen.config.ts"
+  ],
+  "https://t.me/lumen_app": [
+    "src/screen/SettingsScreen/SettingsScreen.config.ts"
+  ],
+  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4": [
+    "src/screen/PlayerScreen/PlayerScreen.config.ts"
+  ],
+  "https://rezka.ag": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://rezka-ua.pub": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "http://hdrezka.tv": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://hdrezka.ag": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://prx-cogent.ukrtelcdn.net": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://prx2-cogent.ukrtelcdn.net": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://prx3-cogent.ukrtelcdn.net": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://prx4-cogent.ukrtelcdn.net": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://prx5-cogent.ukrtelcdn.net": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://prx6-cogent.ukrtelcdn.net": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://prx-ams.ukrtelcdn.net": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://stream.voidboost.cc": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://stream.voidboost.top": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://stream.voidboost.link": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://stream.voidboost.club": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://hdrzk.org": [
+    "src/api/RezkaApi/index.ts"
+  ],
+  "https://statichdrezka.ac${path": [
+    "src/api/RezkaApi/utils.ts"
+  ],
+  "https://statichdrezka.ac/${path": [
+    "src/api/RezkaApi/utils.ts"
+  ],
+  "https://github.com/DefinitelyTyped/DefinitelyTyped/issues/37087": [
+    "src/libs/react-tv-space-navigation/spatial-navigation/helpers/TypedMemo.tsx"
+  ],
+  "https://github.com/facebook/react-native/blob/1c1c8335db2494672cf955cf4db574e23fd2198a/packages/react-native/Libraries/Components/ScrollView/ScrollView.d.ts#L861": [
+    "src/libs/react-tv-space-navigation/spatial-navigation/components/ScrollView/types.ts"
+  ],
+  "https://medium.com/@moshe_31114/building-our-recycle-list-solution-in-react-17a21a9605a0": [
+    "src/libs/react-tv-space-navigation/spatial-navigation/components/virtualizedList/VirtualizedList.tsx"
+  ],
+  "https://www.dropbox.com/scl/fi/gz7j11yaje0naix568od9/update.json?rlkey=7tfi07dvys885zvkqwiihpwlf&st=id57d5yf&dl=1": [
+    "src/component/AppUpdater/AppUpdater.config.ts"
+  ],
+  "https://docs.infinite.red/ignite-cli/concept/Error-Boundary/": [
+    "src/component/ErrorBoundary/ErrorBoundary.tsx"
+  ],
+  "https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary": [
+    "src/component/ErrorBoundary/ErrorBoundary.tsx"
+  ],
+  "https://github.com/bamlab/react-tv-space-navigation/issues/95#issuecomment-2036199373": [
+    "src/component/FilmPager/FilmPager.component.atv.tsx"
+  ],
+  "https://reactnavigation.org/docs/navigating-without-navigation-prop/": [
+    "src/util/Navigation/index.ts",
+    "src/util/Navigation/index.ts"
+  ],
+  "https://reactnative.dev/docs/backhandler": [
+    "src/util/Navigation/index.ts"
+  ]
+}

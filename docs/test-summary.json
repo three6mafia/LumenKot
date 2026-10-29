@@ -1,0 +1,26 @@
+{
+  "jvm": [
+    {
+      "name": "com.lumenkot.app.NativeRuntimeTest",
+      "tests": "5",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0"
+    },
+    {
+      "name": "com.lumenkot.app.ParserTest",
+      "tests": "6",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0"
+    }
+  ],
+  "instrumentation": {
+    "tests": 5,
+    "failures": 0,
+    "skipped": 0,
+    "device": "Android 15 / API 35 AOSP ATD x86_64",
+    "fixture_route": "adb reverse tcp:8765 tcp:8765",
+    "result": "OK (5 tests)"
+  }
+}
