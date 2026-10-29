@@ -88,6 +88,50 @@ class NativeRuntimeTest {
             assertEquals(listOf("Главная","Поиск","Закладки","История","Аккаунт"),labels)
         }
     }
+    @Test fun htmlLoginResponseShowsActionableErrorInsteadOfJsonException() {
+        okhttp3.mockwebserver.MockWebServer().use {mock ->
+            mock.start();mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody("<!doctype html><html><title>Login</title></html>"))
+            settings.provider=mock.url("/").toString().trimEnd('/')
+            val error=runCatching {RezkaApi(settings).login("fixture","fixture")}.exceptionOrNull()
+            assertNotNull(error);assertTrue(error!!.message.orEmpty().contains("страницу вместо"))
+            assertFalse(error is org.json.JSONException)
+        }
+    }
+    @Test fun postRedirectToHtmlIsReportedInsteadOfParsedAsJson() {
+        okhttp3.mockwebserver.MockWebServer().use {mock ->
+            mock.start();mock.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(302).setHeader("Location","/login"))
+            mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody("<!doctype html><html></html>"))
+            settings.provider=mock.url("/").toString().trimEnd('/')
+            val error=runCatching {RezkaApi(settings).login("fixture","fixture")}.exceptionOrNull()
+            assertTrue(error!!.message.orEmpty().contains("перенаправил"))
+        }
+    }
+    @Test fun ajaxVideoPostUsesOriginalSlashAndKeepsFormFields() {
+        okhttp3.mockwebserver.MockWebServer().use { mock ->
+            mock.start()
+            mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody("""{"success":true,"url":"[720p]https://example.com/video.mp4"}"""))
+            settings.provider=mock.url("/").toString().trimEnd('/')
+            val api=RezkaApi(settings)
+            api.checked("/ajax/get_cdn_series",mapOf("id" to "42","translator_id" to "7","action" to "get_movie"))
+            val request=mock.takeRequest()
+            assertEquals("POST",request.method)
+            assertEquals("/ajax/get_cdn_series/",request.requestUrl!!.encodedPath)
+            val body=request.body.readUtf8()
+            assertTrue(body.contains("name=\"translator_id\""));assertTrue(body.contains("get_movie"))
+        }
+    }
+    @Test fun seriesResponseWithoutSuccessFlagMatchesSourceContract() {
+        okhttp3.mockwebserver.MockWebServer().use { mock ->
+            mock.start()
+            val season="<li class='b-simple_season__item' data-tab_id='1'>Сезон 1</li>"
+            val episode="<div id='simple-episodes-list-1'><li class='b-simple_episode__item' data-episode_id='2'>Серия 2</li></div>"
+            mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody(org.json.JSONObject().put("seasons",season).put("episodes",episode).toString()))
+            settings.provider=mock.url("/").toString().trimEnd('/')
+            val film=Parser.film("<div class='b-post__title'><h1>Сериал</h1></div><li class='b-translator__item' data-translator_id='7'>Перевод</li>","/series/42-test.html")
+            assertEquals("2",RezkaApi(settings).seasons(film,film.voices.first()).single().episodes.single().id)
+            assertEquals("/ajax/get_cdn_series/",mock.takeRequest().requestUrl!!.encodedPath)
+        }
+    }
     @Test fun cookiesPersistWithoutCrossingMirrors() {
         val api=RezkaApi(settings);api.login("fixture","fixture")
         assertTrue(RezkaApi(settings).cookies.signedIn())

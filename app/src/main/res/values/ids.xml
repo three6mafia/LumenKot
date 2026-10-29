@@ -1,1 +1,1 @@
-<resources><item name="player_surface" type="id" /></resources>
+<resources><item name="player_surface" type="id" /><item name="video_selection_play" type="id" /><item name="video_selection_status" type="id" /></resources>

@@ -2,6 +2,7 @@ package com.lumenkot.app
 
 import android.content.Intent
 import android.os.SystemClock
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.ui.PlayerView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -55,6 +56,41 @@ class NativeSmokeTest {
     @Test fun nativeMainActivityLaunches() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario -> scenario.onActivity { assertFalse(it.isFinishing) } }
     }
+    @Test fun watchSelectionFetchesVideoWithoutLogin() {
+        val film=api.film("/films/42-native.html")
+        val result=java.util.concurrent.atomic.AtomicReference<Video>()
+        lateinit var dialog: VideoSelectionDialog
+        ActivityScenario.launch(MainActivity::class.java).use {scenario ->
+            scenario.onActivity {activity -> dialog=VideoSelectionDialog(activity,api,film,activity.lifecycleScope,false) {_,_,_,_,video ->result.set(video)};dialog.show() }
+            val until=SystemClock.elapsedRealtime()+90000
+            while(result.get()==null && SystemClock.elapsedRealtime()<until) SystemClock.sleep(250)
+            assertNotNull("Watch must resolve actual fixture video through native API",result.get())
+            assertTrue(result.get().streams.isNotEmpty())
+        }
+    }
+    @Test fun seriesSelectionLoadsAndPlaysEpisode() {
+        val film=api.film("/series/42-native.html")
+        val result=java.util.concurrent.atomic.AtomicReference<Video>()
+        val selected=java.util.concurrent.atomic.AtomicReference<String>()
+        ActivityScenario.launch(MainActivity::class.java).use {scenario ->
+            lateinit var dialog: VideoSelectionDialog
+            scenario.onActivity {activity -> dialog=VideoSelectionDialog(activity,api,film,activity.lifecycleScope,false) {_,season,episode,_,video ->selected.set("$season/$episode");result.set(video)};dialog.show()}
+            val until=SystemClock.elapsedRealtime()+90000
+            while(result.get()==null && SystemClock.elapsedRealtime()<until) {
+                scenario.onActivity {
+                    if(dialog.isShowing) {
+                        val views=ArrayList<android.view.View>()
+                        dialog.window!!.decorView.findViewsWithText(views,"Серия 1",android.view.View.FIND_VIEWS_WITH_TEXT)
+                        views.filterIsInstance<android.widget.Button>().firstOrNull {it.text=="Серия 1"}?.performClick()
+                    }
+                }
+                SystemClock.sleep(250)
+            }
+            assertNotNull("Selecting an episode must fetch its video",result.get())
+            assertEquals("1/1",selected.get())
+            assertTrue(result.get().streams.isNotEmpty())
+        }
+    }
     @Test fun media3PlaysLocalMp4() {
         val intent=Intent(context,PlayerActivity::class.java).putExtra("media",JSONObject().put("title","Native smoke").put("url","http://127.0.0.1:8765/video.mp4").toString())
         ActivityScenario.launch<PlayerActivity>(intent).use { scenario ->
@@ -69,6 +105,16 @@ class NativeSmokeTest {
                 if(!played) SystemClock.sleep(500)
             }
             assertTrue("Media3 must actually advance through the MP4",played)
+            scenario.onActivity {activity ->
+                fun findLock(view: android.view.View): android.view.View? {
+                    if(view.contentDescription=="Блокировка") return view
+                    if(view is android.view.ViewGroup) for(i in 0 until view.childCount) findLock(view.getChildAt(i))?.let {return it}
+                    return null
+                }
+                val lock=findLock(activity.window.decorView)!!
+                lock.performClick();assertFalse(activity.findViewById<android.view.View>(androidx.media3.ui.R.id.exo_progress).isEnabled)
+                lock.performClick();assertTrue(activity.findViewById<android.view.View>(androidx.media3.ui.R.id.exo_progress).isEnabled)
+            }
         }
     }
 }

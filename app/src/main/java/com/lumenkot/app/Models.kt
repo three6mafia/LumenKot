@@ -20,7 +20,7 @@ data class Card(val id: String, val title: String, val url: String, val image: S
 data class Catalog(val cards: List<Card>, val pages: Int = 1)
 data class Choice(val id: String, val title: String)
 data class Category(val title: String,val genres: List<Choice>,val years: List<Choice>)
-data class Voice(val id: String, val title: String, val camrip: String = "0", val ads: String = "0", val director: String = "0", val premium: Boolean = false)
+data class Voice(val id: String, val title: String, val camrip: String = "0", val ads: String = "0", val director: String = "0", val premium: Boolean = false, val active: Boolean = false)
 data class Episode(val id: String, val title: String)
 data class Season(val id: String, val title: String, val episodes: List<Episode>)
 data class Stream(val quality: String, val url: String)
@@ -30,6 +30,13 @@ data class Film(val card: Card, val original: String, val description: String, v
 data class Comment(val id: String, val author: String, val date: String, val text: String, val likes: String, val indent: Int,val html: String = "")
 
 object Parser {
+    fun servicePageError(html: String): String? {
+        val r=Jsoup.parse(html)
+        val title=r.title().lowercase()
+        return if(title.contains("проверяем, что вы не бот") || title.contains("just a moment") || r.selectFirst("#challenge-form, #cf-challenge-running")!=null)
+            "Сайт требует проверки браузера. Получена страница проверки вместо данных фильма или аккаунта. Это не ошибка пароля."
+        else null
+    }
     fun cards(root: Element): List<Card> = root.select(".b-content__inline_item").mapNotNull { el ->
         val a = el.selectFirst(".b-content__inline_item-link a") ?: return@mapNotNull null
         Card(el.attr("data-id"), a.text(), a.attr("href"), el.selectFirst(".b-content__inline_item-cover img")?.attr("src").orEmpty(), el.selectFirst(".b-content__inline_item-link div")?.text().orEmpty(), when {a.attr("href").contains("/series/")->"Сериал";a.attr("href").contains("/cartoons/")->"Мультфильм";a.attr("href").contains("/animation/")->"Аниме";else->"Фильм"},el.selectFirst(".b-content__inline_item-cover .info")?.text().orEmpty())
@@ -49,7 +56,7 @@ object Parser {
         val r = Jsoup.parse(html)
         val title = r.selectFirst(".b-post__title h1")?.text().orEmpty()
         require(title.isNotBlank()) { r.selectFirst(".error-title")?.text() ?: "Карточка фильма не найдена" }
-        val voices = r.select(".b-translator__item").map { Voice(it.attr("data-translator_id"), it.attr("title").ifBlank { it.text() }, it.attr("data-camrip").ifBlank { "0" }, it.attr("data-ad").ifBlank { "0" }, it.attr("data-director").ifBlank { "0" }, it.hasClass("b-prem_translator")) }.toMutableList()
+        val voices = r.select(".b-translator__item").map { Voice(it.attr("data-translator_id"), it.attr("title").ifBlank { it.text() }, it.attr("data-camrip").ifBlank { "0" }, it.attr("data-ad").ifBlank { "0" }, it.attr("data-director").ifBlank { "0" }, it.hasClass("b-prem_translator"),it.hasClass("active")) }.toMutableList()
         var direct: Video? = null
         if (voices.isEmpty()) {
             val marker = if (r.selectFirst("meta[property=og:type]")?.attr("content")?.contains("video.movie") == true) "initCDNMoviesEvents" else "initCDNSeriesEvents"

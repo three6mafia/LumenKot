@@ -272,21 +272,15 @@ class MainActivity : ComponentActivity() {
     }
     private fun chooseVoice(f: Film, download: Boolean) {
         if(f.restricted.isNotBlank()) { toast(f.restricted);return }
-        select("Перевод",f.voices.map { it.title + if(it.premium) " · Premium" else "" }) { i ->
-            val voice=f.voices[i]
-            if(f.seasons.isNotEmpty() || f.card.url.contains("/series/")) load({ api.seasons(f,voice) }) { seasons ->
-                if(seasons.isEmpty()) chooseVideo(f,voice,"","",download) else select("Сезон",seasons.map { it.title }) { s ->
-                    val season=seasons[s];select("Серия",season.episodes.map { it.title }) { e -> chooseVideo(f,voice,season.id,season.episodes[e].id,download,seasons) }
-                }
-            } else chooseVideo(f,voice,"","",download)
-        }
+        VideoSelectionDialog(this,api,f,lifecycleScope,download) { v,season,episode,seasons,video ->
+            deliverVideo(f,v,season,episode,download,seasons,video)
+        }.show()
     }
-    private fun chooseVideo(f: Film,v: Voice,s: String,e: String,download: Boolean,seasons: List<Season> = emptyList()) {
-        load({ api.video(f,v,s,e) }) { video ->
+    private fun deliverVideo(f: Film,v: Voice,s: String,e: String,download: Boolean,seasons: List<Season>,video: Video) {
             if(video.streams.isEmpty()) toast("Потоки недоступны") else chooseQuality(video,download) { i ->
                 if(download) enqueue(f,video.streams[i],s,e,video.subtitles) else {
                     settings.history(f.card)
-                    val payload=JSONObject().put("title",f.card.title).put("filmUrl",f.card.url).put("film",f.card.id).put("voice",v.id).put("season",s).put("episode",e).put("url",video.streams[i].url).put("quality",video.streams[i].quality)
+                    val payload=JSONObject().put("title",f.card.title).put("subtitle",f.card.info).put("filmUrl",f.card.url).put("film",f.card.id).put("voice",v.id).put("season",s).put("episode",e).put("url",video.streams[i].url).put("quality",video.streams[i].quality)
                     payload.put("seasons",JSONArray(seasons.map { season -> JSONObject().put("id",season.id).put("title",season.title).put("episodes",JSONArray(season.episodes.map { JSONObject().put("id",it.id).put("title",it.title) })) }))
                     payload.put("voices",JSONArray(f.voices.map { JSONObject().put("id",it.id).put("title",it.title) }))
                     payload.put("streams",JSONArray(video.streams.map { JSONObject().put("quality",it.quality).put("url",it.url) }))
@@ -294,7 +288,6 @@ class MainActivity : ComponentActivity() {
                     startActivity(Intent(this,PlayerActivity::class.java).putExtra("media",payload.toString()))
                 }
             }
-        }
     }
     private fun chooseQuality(video: Video,download: Boolean,done: (Int) -> Unit) {
         fun chosen(i: Int) {

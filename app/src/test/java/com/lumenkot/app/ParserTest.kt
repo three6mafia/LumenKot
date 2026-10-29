@@ -7,6 +7,10 @@ import org.junit.Test
 import java.util.Base64
 
 class ParserTest {
+    @Test fun browserChallengeIsNotMistakenForCatalogOrWrongPassword() {
+        assertTrue(Parser.servicePageError("<!doctype html><html><title>Проверяем, что вы не бот!</title></html>")!!.contains("проверки браузера"))
+        assertNull(Parser.servicePageError("<html><title>Теория большого взрыва</title></html>"))
+    }
     @Test fun parsesCatalogAndPagination() {
         val html="""<div class="b-content__inline_item" data-id="42"><div class="b-content__inline_item-cover"><img src="https://example.com/poster.jpg"><span class="info">HD</span></div><div class="b-content__inline_item-link"><a href="/films/42-film.html">Фильм</a><div>2026, драма</div></div></div><div class="b-navigation"><a>1</a><a>12</a><a>→</a></div>"""
         val result=Parser.catalog(html)

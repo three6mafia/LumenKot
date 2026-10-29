@@ -6,7 +6,9 @@
 
 ## APK
 
-Готовая устанавливаемая сборка: [`artifacts/LumenKot-1.0.0.apk`](artifacts/LumenKot-1.0.0.apk). Контрольная сумма находится рядом в `SHA256SUMS`.
+В этой рабочей ветке: [`artifacts/LumenKot-1.0.1-test.apk`](artifacts/LumenKot-1.0.1-test.apk) — **тестовая сборка** с исправлениями запросов/ошибки HTML и частично восстановленным интерфейсом видео. Подробности и ограничения: [PLAYBACK_FIXES.md](docs/PLAYBACK_FIXES.md). Работа реального сериала пользователя не подтверждена: сайт возвращает среде страницу проверки браузера. Полный перенос интерфейса ещё не закончен.
+
+Старая сборка прототипа (с изменённым интерфейсом): [`artifacts/LumenKot-1.0.0.apk`](artifacts/LumenKot-1.0.0.apk). Контрольная сумма находится рядом в `SHA256SUMS`.
 
 Идентификатор `com.lumenkot.app` позволяет установить приложение рядом с оригинальным Lumen. APK варианта release подписан локальным **отладочным сертификатом** для установки и тестирования. Для дальнейших обновлений используйте тот же сертификат; для публикации приложения настройте собственный release signing. Закрытые ключи не включены в Git.
 
@@ -35,7 +37,7 @@ printf 'sdk.dir=/path/to/android-sdk\n' > local.properties
 Скрипт собирает `app/build/outputs/apk/release/app-release.apk`, запускает JVM-тесты и Android Lint. В облачной среде он использует существующие HTTP(S)-proxy и доверенный CA, сохраняя проверку TLS. В обычной среде можно также запускать `./gradlew assembleRelease testDebugUnitTest lintDebug`.
 
 ```sh
-adb install -r artifacts/LumenKot-1.0.0.apk
+adb install -r artifacts/LumenKot-1.0.1-test.apk
 ```
 
 Готовая сборка не требует Node.js или отдельного сервера разработки.
