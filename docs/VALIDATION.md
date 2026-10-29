@@ -8,6 +8,7 @@
 - `testDebugUnitTest`: **11 тестов, 0 ошибок, 0 пропусков**. Проверены каталог/пагинация, сезоны и серии, inline-видео, декодирование замусоренного Base64, неизменность URL и субтитры. Дополнительно Robolectric проверяет создание Activity в светлой и тёмной теме, настоящий HTTP к MockWebServer, сохраняемые cookies/изоляцию доменов, поиск/комментарии и историю.
 - `lintDebug`: **0 ошибок**. Остаются рекомендации по ресурсам/локализации, PiP, KTX и версиям библиотек; проверки не отключались, baseline не добавлялся.
 - `apksigner verify`: устанавливаемый APK подписан схемой v2. Используется локальный отладочный сертификат; это не production signing key.
+- Передаваемый release APK установлен в Android 15 ATD: `adb install` → `Success`, холодный запуск `MainActivity` → `Status: ok`.
 - `aapt dump badging`: package `com.lumenkot.app`, min SDK 24, target SDK 35, имя `LumenKot`.
 - В APK нет React Native bundle или native runtime. UI написан на Kotlin/Android Views, видео воспроизводит Media3, HTTP/HTML обрабатывают OkHttp/Jsoup.
 - Реестр исходных URL сохранён в `original-links.json`. Зеркала, CDN, статический сервер изображений, ссылки проекта и JSON обновлений оригинала не перенаправлялись на другие сервисы.

@@ -22,5 +22,10 @@
     "device": "Android 15 / API 35 AOSP ATD x86_64",
     "fixture_route": "adb reverse tcp:8765 tcp:8765",
     "result": "OK (5 tests)"
+  },
+  "release_apk": {
+    "installation": "Success",
+    "cold_launch": "Status: ok",
+    "package": "com.lumenkot.app"
   }
 }
