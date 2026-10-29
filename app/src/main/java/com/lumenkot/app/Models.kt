@@ -16,7 +16,7 @@ object Links {
     const val support = "mirror@hdrezka.org"
     val cdns = listOf("https://prx-cogent.ukrtelcdn.net", "https://prx2-cogent.ukrtelcdn.net", "https://prx3-cogent.ukrtelcdn.net", "https://prx4-cogent.ukrtelcdn.net", "https://prx5-cogent.ukrtelcdn.net", "https://prx6-cogent.ukrtelcdn.net", "https://prx-ams.ukrtelcdn.net", "https://stream.voidboost.cc", "https://stream.voidboost.top", "https://stream.voidboost.link", "https://stream.voidboost.club")
 }
-data class Card(val id: String, val title: String, val url: String, val image: String = "", val info: String = "")
+data class Card(val id: String, val title: String, val url: String, val image: String = "", val info: String = "", val type: String = "", val badge: String = "")
 data class Catalog(val cards: List<Card>, val pages: Int = 1)
 data class Choice(val id: String, val title: String)
 data class Category(val title: String,val genres: List<Choice>,val years: List<Choice>)
@@ -32,7 +32,7 @@ data class Comment(val id: String, val author: String, val date: String, val tex
 object Parser {
     fun cards(root: Element): List<Card> = root.select(".b-content__inline_item").mapNotNull { el ->
         val a = el.selectFirst(".b-content__inline_item-link a") ?: return@mapNotNull null
-        Card(el.attr("data-id"), a.text(), a.attr("href"), el.selectFirst(".b-content__inline_item-cover img")?.attr("src").orEmpty(), listOf(el.selectFirst(".b-content__inline_item-link div")?.text().orEmpty(), el.selectFirst(".info")?.text().orEmpty()).filter { it.isNotBlank() }.joinToString(" · "))
+        Card(el.attr("data-id"), a.text(), a.attr("href"), el.selectFirst(".b-content__inline_item-cover img")?.attr("src").orEmpty(), el.selectFirst(".b-content__inline_item-link div")?.text().orEmpty(), when {a.attr("href").contains("/series/")->"Сериал";a.attr("href").contains("/cartoons/")->"Мультфильм";a.attr("href").contains("/animation/")->"Аниме";else->"Фильм"},el.selectFirst(".b-content__inline_item-cover .info")?.text().orEmpty())
     }
     fun pages(root: Element): Int = root.select(".b-navigation a").mapNotNull { it.text().toIntOrNull() }.maxOrNull() ?: 1
     fun catalog(html: String): Catalog = Jsoup.parse(html).let { Catalog(cards(it), pages(it)) }

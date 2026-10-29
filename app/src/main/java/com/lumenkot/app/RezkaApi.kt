@@ -16,11 +16,18 @@ import java.util.concurrent.TimeUnit
 
 class Settings(context: Context) {
     val prefs = context.getSharedPreferences("lumen", Context.MODE_PRIVATE)
+    init {
+        // Correct the old default on upgrade without replacing custom mirrors or cookies.
+        if (prefs.getInt("networkDefaultsVersion",0)<2) {
+            if (prefs.getString("provider",Links.providers.first())==Links.providers.first()) prefs.edit().putBoolean("official",false).apply()
+            prefs.edit().putInt("networkDefaultsVersion",2).apply()
+        }
+    }
     var provider: String
         get() = prefs.getString("provider", Links.providers.first())!!
         set(value) { require(value.startsWith("https://") || value.startsWith("http://")); prefs.edit().putString("provider", value.trimEnd('/')).apply() }
     var official: Boolean
-        get() = prefs.getBoolean("official", true)
+        get() = prefs.getBoolean("official", false)
         set(value) { prefs.edit().putBoolean("official", value).apply() }
     var shareLink: String
         get() = prefs.getString("shareLink",Links.providers.first())!!

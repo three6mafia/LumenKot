@@ -35,15 +35,16 @@ class MainActivity : ComponentActivity() {
     private lateinit var api: RezkaApi
     private lateinit var body: LinearLayout
     private lateinit var heading: TextView
+    private lateinit var sectionTabs: LinearLayout
     private val back = ArrayDeque<() -> Unit>()
     private var current: (() -> Unit)? = null
     private var generation = 0
     private val light: Boolean get() = when(settings.prefs.getString("theme","system")) { "light" -> true; "dark" -> false;else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)!=Configuration.UI_MODE_NIGHT_YES }
-    private val foreground get() = if(light) Color.rgb(23,33,23) else Color.WHITE
-    private val accent get() = if(light) Color.rgb(50,105,20) else Color.rgb(181,243,107)
-    private val muted get() = if(light) Color.rgb(75,91,75) else Color.rgb(163,174,161)
-    private val tileBase get() = if(light) Color.rgb(236,242,232) else Color.rgb(29,37,29)
-    private val tileFocus get() = if(light) Color.rgb(214,236,193) else Color.rgb(54,73,42)
+    private val foreground get() = if(light) Color.parseColor("#1C1C1C") else Color.parseColor("#E3E3E3")
+    private val accent get() = if(light) Color.parseColor("#4A9DD9") else Color.parseColor("#004A77")
+    private val muted get() = if(light) Color.parseColor("#3B3838") else Color.parseColor("#C4C7C5")
+    private val tileBase get() = if(light) Color.parseColor("#C7C7C7") else Color.parseColor("#383838")
+    private val tileFocus get() = if(light) Color.parseColor("#1C1C1C") else Color.parseColor("#E3E3E3")
     private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { search(it) }
     }
@@ -65,7 +66,11 @@ class MainActivity : ComponentActivity() {
     private fun panel() = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(12)) }
     private fun button(label: String, action: () -> Unit) = Button(this).apply {
         text=label; isAllCaps=false; minHeight=dp(48); setTextColor(this@MainActivity.foreground)
-        setOnClickListener { action() }; setOnFocusChangeListener { _, focused -> setTextColor(if(focused) accent else this@MainActivity.foreground) }
+        background=GradientDrawable().apply { setColor(tileBase);cornerRadius=dp(8).toFloat() };elevation=0f;stateListAnimator=null
+        setOnClickListener { action() }; setOnFocusChangeListener { _, focused ->
+            background=GradientDrawable().apply { setColor(if(focused) tileFocus else tileBase);cornerRadius=dp(8).toFloat() }
+            setTextColor(if(focused) (if(light) Color.WHITE else Color.BLACK) else this@MainActivity.foreground)
+        }
     }
     private fun row(vararg views: View) = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; views.forEach { addView(it) } }
     private fun horizontal(content: LinearLayout): HorizontalScrollView = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled=false; addView(content) }
@@ -73,19 +78,42 @@ class MainActivity : ComponentActivity() {
         if(remember) current?.let { back.addLast(it) }
         current=action; action()
     }
+    private val tv get() = (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK)==Configuration.UI_MODE_TYPE_TELEVISION
+    private fun navIcon(name: String, action: () -> Unit): View = ImageButton(this).apply {
+        setImageDrawable(LumenIcon(name,this@MainActivity.foreground));if(name=="Аккаунт") setImageResource(R.drawable.profile_placeholder);contentDescription=name
+        setBackgroundColor(Color.TRANSPARENT);setPadding(dp(12),dp(12),dp(12),dp(12))
+        isFocusable=true;setOnClickListener { action() }
+        setOnFocusChangeListener { _,focused -> background=GradientDrawable().apply {setColor(if(focused) tileBase else Color.TRANSPARENT);cornerRadius=dp(24).toFloat()} }
+    }
     private fun shell(title: String) {
         generation++
-        val root=panel().apply { setBackgroundColor(if(light) Color.rgb(250,252,247) else Color.rgb(16,21,16)) }
-        val brand = text("LUMEN",22f,accent).apply { setTypeface(null,Typeface.BOLD); letterSpacing=.14f }
-        val nav=row(button("‹") { onBackPressedDispatcher.onBackPressed() },brand)
-        root.addView(nav)
-        val menu=row(button("Главная") { home() },button("Поиск") { search() },button("Каталог") { categories() },button("Подборки") { collections() },button("Закладки") { bookmarks() },button("История") { history() },button("Загрузки") { downloads() },button("Уведомления") { notifications() },button("Аккаунт") { account() },button("Настройки") { preferences() })
-        root.addView(horizontal(menu))
-        heading=text(title,26f).apply { setTypeface(null,Typeface.BOLD) }; root.addView(heading)
-        body=panel()
-        root.addView(ScrollView(this).apply { isFillViewport=true; addView(body) },LinearLayout.LayoutParams(-1,0,1f))
+        val root=LinearLayout(this).apply { orientation=if(tv) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL;setBackgroundColor(if(light) Color.WHITE else Color.BLACK) }
+        val content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
+        if(tv) root.addView(LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER
+            listOf("Аккаунт" to {account()},"Уведомления" to {notifications()},"Главная" to {home()},"История" to {history()},"Поиск" to {search()},"Закладки" to {bookmarks()},"Настройки" to {preferences()}).forEach { (name,go) -> addView(navIcon(name,go),LinearLayout.LayoutParams(dp(48),dp(48))) }
+        },LinearLayout.LayoutParams(dp(68),-1))
+        root.addView(content,if(tv) LinearLayout.LayoutParams(0,-1,1f) else LinearLayout.LayoutParams(-1,0,1f))
+        heading=text(title,20f).apply {setTypeface(null,Typeface.BOLD)}
+        if(title!="Смотреть сегодня" && title!="Поиск") {
+            val header=row()
+            if(title!="Аккаунт" && title!="Закладки" && title!="История просмотра") header.addView(navIcon("Назад") {onBackPressedDispatcher.onBackPressed()},LinearLayout.LayoutParams(dp(48),dp(48)))
+            header.addView(heading,LinearLayout.LayoutParams(0,dp(48),1f))
+            if(title=="Аккаунт") header.addView(navIcon("Настройки") {preferences()},LinearLayout.LayoutParams(dp(48),dp(48)))
+            content.addView(header)
+        }
+        body=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setPadding(dp(16),0,dp(16),dp(8))}
+        content.addView(ScrollView(this).apply {isFillViewport=true;addView(body)},LinearLayout.LayoutParams(-1,0,1f))
+        sectionTabs=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL}
+        content.addView(sectionTabs)
+        if(!tv && title!="Вход") {
+            root.addView(View(this).apply {setBackgroundColor(if(light) Color.parseColor("#B1B1B1") else Color.parseColor("#4E4E4E"))},LinearLayout.LayoutParams(-1,dp(1)))
+            root.addView(row().apply {
+                listOf("Главная" to {home()},"Поиск" to {search()},"Закладки" to {bookmarks()},"История" to {history()},"Аккаунт" to {account()}).forEach { (name,go) -> addView(navIcon(name,go),LinearLayout.LayoutParams(0,dp(50),1f)) }
+            })
+        }
         setContentView(root)
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v,insets -> val i=insets.getInsets(WindowInsetsCompat.Type.systemBars());v.setPadding(dp(12)+i.left,i.top,dp(12)+i.right,i.bottom);insets }
+        ViewCompat.setOnApplyWindowInsetsListener(root) {v,insets ->val i=insets.getInsets(WindowInsetsCompat.Type.systemBars());v.setPadding(i.left,i.top,i.right,i.bottom);insets}
     }
     private fun <T> load(work: () -> T, done: (T) -> Unit) {
         val screen=generation
@@ -105,20 +133,25 @@ class MainActivity : ComponentActivity() {
     private fun note(value: String) { body.addView(text(value,15f,muted)) }
     private fun cards(items: List<Card>, open: (Card) -> Unit = { film(it.url) }) {
         if(items.isEmpty()) { note("Ничего не найдено"); return }
-        val columns=settings.prefs.getInt("columns",if(resources.configuration.screenWidthDp >= 960) 6 else if(resources.configuration.screenWidthDp >= 600) 4 else 2).coerceIn(2,8)
+        val columns=settings.prefs.getInt("columns",if(resources.configuration.screenWidthDp >= 960) 6 else if(resources.configuration.screenWidthDp >= 600) 4 else 3).coerceIn(2,8)
         val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
         items.chunked(columns).forEach { chunk ->
             val line=LinearLayout(this)
             chunk.forEach { card ->
-                val tile=panel().apply {
+                val tile=LinearLayout(this).apply {
+                    orientation=LinearLayout.VERTICAL
                     isFocusable=true; isClickable=true; contentDescription=card.title + ". " + card.info
-                    background=GradientDrawable().apply { setColor(tileBase); cornerRadius=dp(12).toFloat() }
+                    background=GradientDrawable().apply { setColor(Color.TRANSPARENT); cornerRadius=dp(12).toFloat() }
                     setOnClickListener { open(card) }
-                    setOnFocusChangeListener { _,focus -> background=GradientDrawable().apply { setColor(if(focus) tileFocus else tileBase); cornerRadius=dp(12).toFloat(); if(focus) setStroke(dp(2),accent) } }
+                    setOnFocusChangeListener { _,focus -> background=GradientDrawable().apply { setColor(if(focus) tileFocus else Color.TRANSPARENT); cornerRadius=dp(12).toFloat(); if(focus) setStroke(dp(2),accent) } }
                 }
                 if(card.image.isNotBlank()) {
                     val image=ImageView(this).apply { scaleType=ImageView.ScaleType.CENTER_CROP; importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO }
-                    tile.addView(image,LinearLayout.LayoutParams(-1,dp(if(columns>=4) 180 else 210)))
+                    val poster=FrameLayout(this).apply {background=GradientDrawable().apply {setColor(if(light) Color.LTGRAY else Color.DKGRAY);cornerRadius=dp(12).toFloat()};clipToOutline=true}
+                    poster.addView(image,FrameLayout.LayoutParams(-1,-1))
+                    if(card.type.isNotBlank()) poster.addView(text(card.type,10f,Color.WHITE).apply {setBackgroundColor(if(card.type=="Сериал") Color.rgb(220,86,93) else Color.rgb(0,155,174));setPadding(dp(4),0,dp(4),0)},FrameLayout.LayoutParams(-2,-2,Gravity.TOP or Gravity.END))
+                    if(card.badge.isNotBlank()) poster.addView(text(card.badge,10f,Color.WHITE).apply {setBackgroundColor(Color.rgb(220,86,93));setPadding(dp(4),0,dp(4),0)},FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM or Gravity.START))
+                    tile.addView(poster,LinearLayout.LayoutParams(-1,dp(((resources.configuration.screenWidthDp-(if(tv) 68 else 0)-32-columns*8)/columns*250f/166).toInt())))
                     lifecycleScope.launch {
                         val bitmap=withContext(Dispatchers.IO) { runCatching {
                             val u=if(card.image.startsWith("http")) card.image else if(card.image.startsWith("//")) "https:${card.image}" else Links.static+"/"+card.image.trimStart('/')
@@ -127,8 +160,8 @@ class MainActivity : ComponentActivity() {
                         if(image.isAttachedToWindow) image.setImageBitmap(bitmap)
                     }
                 }
-                tile.addView(text(card.title,17f).apply { setTypeface(null,Typeface.BOLD); maxLines=3 })
-                tile.addView(text(card.info,13f,muted).apply { maxLines=3 })
+                tile.addView(text(card.title,12f).apply { setTypeface(null,Typeface.BOLD); maxLines=2 })
+                tile.addView(text(card.info,10f,muted).apply { maxLines=2 })
                 line.addView(tile,LinearLayout.LayoutParams(0,-2,1f).apply { setMargins(dp(4),dp(4),dp(4),dp(4)) })
             }
             repeat(columns-chunk.size) { line.addView(View(this),LinearLayout.LayoutParams(0,1,1f)) }
@@ -140,12 +173,20 @@ class MainActivity : ComponentActivity() {
         val controls=row(); if(page>1) controls.addView(button("← Назад") { go(page-1) })
         controls.addView(text("$page / $pages",14f,muted)); if(page<pages) controls.addView(button("Дальше →") { go(page+1) }); body.addView(controls)
     }
-    private fun home(page: Int = 1, section: Int = 1, genre: String = "", remember: Boolean = true) {
+    private fun home(page: Int = 1, section: Int = 0, genre: String = "", remember: Boolean = true) {
         page("Главная", {
             shell("Смотреть сегодня")
             val names=listOf("Горячие новинки","Новинки","Сейчас смотрят","Популярные","В ожидании")
-            body.addView(horizontal(row(*names.mapIndexed { i,n -> button(if(i==section) "• $n" else n) { home(1,i,genre,false) } }.toTypedArray())))
-            body.addView(horizontal(row(*listOf("Все" to "","Фильмы" to "1","Сериалы" to "2","Мультфильмы" to "3","Аниме" to "82").map { (name,id) -> button(name) { home(1,section,id,false) } }.toTypedArray())))
+            sectionTabs.addView(horizontal(row(*names.mapIndexed { i,n ->
+                text(if(i==section) "$n\n${mapOf("" to "Все","1" to "Фильмы","2" to "Сериалы","3" to "Мультфильмы","82" to "Аниме")[genre] ?: "Все"}" else n,12f).apply {
+                    gravity=Gravity.CENTER;setPadding(dp(8),dp(10),dp(8),dp(8));isFocusable=true;isClickable=true
+                    if(i==section) setTypeface(null,Typeface.BOLD)
+                    setOnClickListener {
+                        if(i==section) select("Тип",listOf("Все","Фильмы","Сериалы","Мультфильмы","Аниме")) { option ->home(1,i,listOf("","1","2","3","82")[option],false) }
+                        else home(1,i,genre,false)
+                    }
+                }
+            }.toTypedArray())))
             load({ if(section==0) api.hot(genre.ifBlank { "0" }) else api.catalog(if(section==4) "/announce" else "/new",page,if(section==2) "watching" else if(section==3) "popular" else "",genre) }) {
                 cards(it.cards); pagination(page,it.pages) { n -> home(n,section,genre,false) }
             }
@@ -168,10 +209,15 @@ class MainActivity : ComponentActivity() {
                 }
                 override fun afterTextChanged(s: Editable?) {}
             })
-            body.addView(input)
-            body.addView(row(button("Найти") { search(input.text.toString(),1,false) },button("Голосом") {
-                runCatching { speech.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)) }.onFailure { toast("Распознавание речи недоступно") }
-            }))
+            val searchBar=row()
+            searchBar.addView(navIcon("Голосом") {
+                runCatching {speech.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM))}.onFailure {toast("Распознавание речи недоступно")}
+            },LinearLayout.LayoutParams(dp(40),dp(44)))
+            input.hint="Поиск";input.textSize=14f
+            searchBar.addView(input,LinearLayout.LayoutParams(0,dp(44),1f))
+            searchBar.addView(navIcon("Фильтры") {categories()},LinearLayout.LayoutParams(dp(40),dp(44)))
+            searchBar.addView(navIcon("Подборки") {collections()},LinearLayout.LayoutParams(dp(40),dp(44)))
+            body.addView(searchBar)
             if(query.isNotBlank()) load({ api.search(query,n) }) { result -> cards(result.cards);pagination(n,result.pages) { search(query,it,false) } }
         },remember)
     }
@@ -297,18 +343,31 @@ class MainActivity : ComponentActivity() {
     private fun account() {
         page("Аккаунт", {
             shell("Аккаунт")
+            if(api.cookies.signedIn()) {body.addView(button("Обновления") {notifications()});body.addView(button("Загрузки") {downloads()})}
             if(api.cookies.signedIn()) {
                 load({ api.profile() }) { body.addView(text(it,20f)) }
                 body.addView(button("Выйти") { api.cookies.clear(); current?.invoke() })
             } else {
+                body.addView(text("Вы не авторизованы",20f).apply {gravity=Gravity.CENTER})
+                body.addView(text("Войдите, чтобы синхронизировать контент",14f,muted).apply {gravity=Gravity.CENTER})
+                body.addView(button("Перейти на страницу входа") {login()})
+                body.addView(button("Загрузки") {downloads()})
+
+            }
+        })
+    }
+    private fun login() {
+        page("Вход", {
+            shell("Вход")
+            body.addView(text("Вы не авторизованы",20f))
+            body.addView(text("Войдите, чтобы синхронизировать контент",14f,muted))
                 val name=EditText(this).apply { hint="Логин или email";isSingleLine=true;inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS }
                 val password=EditText(this).apply { hint="Пароль";isSingleLine=true;inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
                 body.addView(name);body.addView(password)
                 body.addView(button("Войти") {
                     val login=name.text.toString();val secret=password.text.toString()
-                    if(login.isBlank() || secret.isBlank()) toast("Введите логин и пароль") else load({ api.login(login,secret) }) { password.text.clear(); current?.invoke() }
+                    if(login.isBlank() || secret.isBlank()) toast("Введите логин и пароль") else load({ api.login(login,secret) }) { password.text.clear();account() }
                 })
-            }
         })
     }
     private fun edit(title: String,value: String,save: (String) -> Unit) {

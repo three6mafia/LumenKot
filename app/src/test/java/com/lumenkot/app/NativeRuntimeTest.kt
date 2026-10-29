@@ -65,6 +65,29 @@ class NativeRuntimeTest {
         settings.prefs.edit().putString("theme","dark").commit()
         Robolectric.buildActivity(MainActivity::class.java).setup().use { controller -> assertFalse(controller.get().isFinishing) }
     }
+    @Test fun freshInstallUsesRezkaWithoutOfficialHeaders() {
+        settings.prefs.edit().clear().commit()
+        val fresh=Settings(ApplicationProvider.getApplicationContext())
+        assertEquals("https://rezka.ag",fresh.endpoint)
+        assertFalse(RezkaApi(fresh).headers().containsKey("X-Hdrezka-Android-App"))
+    }
+    @Test fun upgradeCorrectsOldOfficialDefaultAndPreservesCookies() {
+        settings.prefs.edit().clear().putString("provider","https://rezka.ag").putBoolean("official",true).putString("cookies","[]").commit()
+        val upgraded=Settings(ApplicationProvider.getApplicationContext())
+        assertEquals("https://rezka.ag",upgraded.endpoint)
+        assertEquals("[]",upgraded.prefs.getString("cookies",null))
+    }
+    @Test fun mobileNavigationContainsExactlyOriginalFiveActions() {
+        Robolectric.buildActivity(MainActivity::class.java).setup().use { controller ->
+            val labels=mutableListOf<String>()
+            fun collect(view: android.view.View) {
+                if(view is android.widget.ImageButton) labels.add(view.contentDescription.toString())
+                if(view is android.view.ViewGroup) for(i in 0 until view.childCount) collect(view.getChildAt(i))
+            }
+            collect(controller.get().window.decorView)
+            assertEquals(listOf("Главная","Поиск","Закладки","История","Аккаунт"),labels)
+        }
+    }
     @Test fun cookiesPersistWithoutCrossingMirrors() {
         val api=RezkaApi(settings);api.login("fixture","fixture")
         assertTrue(RezkaApi(settings).cookies.signedIn())
