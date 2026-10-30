@@ -1,0 +1,24 @@
+{
+  "recordedAt": "2026-10-29T18:26:44.211025+00:00",
+  "apk": "artifacts/LumenKot-1.0.1-test.apk",
+  "sha256": "9f822252dfdb9207c00511af67b4e629cc834c129e10febca8d133c30ba322f4",
+  "jvmSuites": [
+    {
+      "name": "com.lumenkot.app.NativeRuntimeTest",
+      "tests": "12",
+      "failures": "0",
+      "errors": "0"
+    },
+    {
+      "name": "com.lumenkot.app.ParserTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0"
+    }
+  ],
+  "assembleRelease": "passed",
+  "assembleDebug": "passed",
+  "lintDebug": "passed; warnings remain",
+  "realUserSeries": "failed: browser-verification HTML instead of film data; see live-user-series-blocked.xml",
+  "androidInstrumentation": "passed: OK (7 tests), API 35 AOSP ATD, localhost fixtures; not a real-site or visual-parity check"
+}

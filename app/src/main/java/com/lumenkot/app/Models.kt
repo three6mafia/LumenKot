@@ -16,12 +16,12 @@ object Links {
     const val support = "mirror@hdrezka.org"
     val cdns = listOf("https://prx-cogent.ukrtelcdn.net", "https://prx2-cogent.ukrtelcdn.net", "https://prx3-cogent.ukrtelcdn.net", "https://prx4-cogent.ukrtelcdn.net", "https://prx5-cogent.ukrtelcdn.net", "https://prx6-cogent.ukrtelcdn.net", "https://prx-ams.ukrtelcdn.net", "https://stream.voidboost.cc", "https://stream.voidboost.top", "https://stream.voidboost.link", "https://stream.voidboost.club")
 }
-data class Card(val id: String, val title: String, val url: String, val image: String = "", val info: String = "")
+data class Card(val id: String, val title: String, val url: String, val image: String = "", val info: String = "", val type: String = "", val badge: String = "")
 data class Catalog(val cards: List<Card>, val pages: Int = 1)
 data class Choice(val id: String, val title: String)
 data class Category(val title: String,val genres: List<Choice>,val years: List<Choice>)
-data class Voice(val id: String, val title: String, val camrip: String = "0", val ads: String = "0", val director: String = "0", val premium: Boolean = false)
-data class Episode(val id: String, val title: String)
+data class Voice(val id: String, val title: String, val camrip: String = "0", val ads: String = "0", val director: String = "0", val premium: Boolean = false, val active: Boolean = false)
+data class Episode(val id: String, val title: String, val active: Boolean = false)
 data class Season(val id: String, val title: String, val episodes: List<Episode>)
 data class Stream(val quality: String, val url: String)
 data class Subtitle(val title: String, val url: String, val language: String = "", val default: Boolean = false)
@@ -30,26 +30,33 @@ data class Film(val card: Card, val original: String, val description: String, v
 data class Comment(val id: String, val author: String, val date: String, val text: String, val likes: String, val indent: Int,val html: String = "")
 
 object Parser {
+    fun servicePageError(html: String): String? {
+        val r=Jsoup.parse(html)
+        val title=r.title().lowercase()
+        return if(title.contains("проверяем, что вы не бот") || title.contains("just a moment") || r.selectFirst("#challenge-form, #cf-challenge-running")!=null)
+            "Сайт требует проверки браузера. Получена страница проверки вместо данных фильма или аккаунта. Это не ошибка пароля."
+        else null
+    }
     fun cards(root: Element): List<Card> = root.select(".b-content__inline_item").mapNotNull { el ->
         val a = el.selectFirst(".b-content__inline_item-link a") ?: return@mapNotNull null
-        Card(el.attr("data-id"), a.text(), a.attr("href"), el.selectFirst(".b-content__inline_item-cover img")?.attr("src").orEmpty(), listOf(el.selectFirst(".b-content__inline_item-link div")?.text().orEmpty(), el.selectFirst(".info")?.text().orEmpty()).filter { it.isNotBlank() }.joinToString(" · "))
+        Card(el.attr("data-id"), a.text(), a.attr("href"), el.selectFirst(".b-content__inline_item-cover img")?.attr("src").orEmpty(), el.selectFirst(".b-content__inline_item-link div")?.text().orEmpty(), when {a.attr("href").contains("/series/")->"Сериал";a.attr("href").contains("/cartoons/")->"Мультфильм";a.attr("href").contains("/animation/")->"Аниме";else->"Фильм"},el.selectFirst(".b-content__inline_item-cover .info")?.text().orEmpty())
     }
     fun pages(root: Element): Int = root.select(".b-navigation a").mapNotNull { it.text().toIntOrNull() }.maxOrNull() ?: 1
     fun catalog(html: String): Catalog = Jsoup.parse(html).let { Catalog(cards(it), pages(it)) }
     fun seasons(root: Element): List<Season> {
         val seasons = root.select(".b-simple_season__item").map { el ->
             val id = el.attr("data-tab_id")
-            Season(id, el.text(), root.select("#simple-episodes-list-$id .b-simple_episode__item").map { Episode(it.attr("data-episode_id"), it.text()) })
+            Season(id, el.text(), root.select("#simple-episodes-list-$id .b-simple_episode__item").map { Episode(it.attr("data-episode_id"), it.text(), it.hasClass("active")) })
         }
         if (seasons.isNotEmpty()) return seasons
         val eps = root.select(".b-simple_episode__item")
-        return if (eps.isEmpty()) emptyList() else listOf(Season(eps.first()!!.attr("data-season_id").ifBlank { "1" }, "Серии", eps.map { Episode(it.attr("data-episode_id"), it.text()) }))
+        return if (eps.isEmpty()) emptyList() else listOf(Season(eps.first()!!.attr("data-season_id").ifBlank { "1" }, "Серии", eps.map { Episode(it.attr("data-episode_id"), it.text(), it.hasClass("active")) }))
     }
     fun film(html: String, url: String): Film {
         val r = Jsoup.parse(html)
         val title = r.selectFirst(".b-post__title h1")?.text().orEmpty()
         require(title.isNotBlank()) { r.selectFirst(".error-title")?.text() ?: "Карточка фильма не найдена" }
-        val voices = r.select(".b-translator__item").map { Voice(it.attr("data-translator_id"), it.attr("title").ifBlank { it.text() }, it.attr("data-camrip").ifBlank { "0" }, it.attr("data-ad").ifBlank { "0" }, it.attr("data-director").ifBlank { "0" }, it.hasClass("b-prem_translator")) }.toMutableList()
+        val voices = r.select(".b-translator__item").map { Voice(it.attr("data-translator_id"), it.attr("title").ifBlank { it.text() }, it.attr("data-camrip").ifBlank { "0" }, it.attr("data-ad").ifBlank { "0" }, it.attr("data-director").ifBlank { "0" }, it.hasClass("b-prem_translator"),it.hasClass("active")) }.toMutableList()
         var direct: Video? = null
         if (voices.isEmpty()) {
             val marker = if (r.selectFirst("meta[property=og:type]")?.attr("content")?.contains("video.movie") == true) "initCDNMoviesEvents" else "initCDNSeriesEvents"
@@ -63,7 +70,7 @@ object Parser {
             voices.add(Voice(if (marker.contains("Series")) id else "", "Оригинал"))
         }
         return Film(
-            Card(r.selectFirst("#user-favorites-holder")?.attr("data-post_id").orEmpty().ifBlank { Regex("/(\\d+)-").find(url)?.groupValues?.get(1).orEmpty() }, title, url, r.selectFirst(".b-sidecover img")?.attr("src").orEmpty()),
+            Card(r.selectFirst("#user-favorites-holder")?.attr("data-post_id").orEmpty().ifBlank { Regex("/(\\d+)-").find(url)?.groupValues?.get(1).orEmpty() }, title, url, (r.selectFirst(".b-sidecover img")?.let {it.attr("data-src").ifBlank {it.attr("src")}} ?: r.selectFirst("meta[property=og:image]")?.attr("content")).orEmpty()),
             r.selectFirst(".b-post__origtitle")?.text().orEmpty(), r.selectFirst(".b-post__description_text")?.text().orEmpty(), r.select(".b-post__info tr").joinToString("\n") { it.text() }, voices, seasons(r), direct,
             r.select(".b-post__info a[href], .b-post__partcontent_item[data-url]").map { Choice(it.attr("href").ifBlank { it.attr("data-url") }, it.text()) }.filter { it.id.isNotBlank() },
             cards(r.selectFirst(".b-sidelist") ?: Jsoup.parse("")),

@@ -16,11 +16,18 @@ import java.util.concurrent.TimeUnit
 
 class Settings(context: Context) {
     val prefs = context.getSharedPreferences("lumen", Context.MODE_PRIVATE)
+    init {
+        // Correct the old default on upgrade without replacing custom mirrors or cookies.
+        if (prefs.getInt("networkDefaultsVersion",0)<2) {
+            if (prefs.getString("provider",Links.providers.first())==Links.providers.first()) prefs.edit().putBoolean("official",false).apply()
+            prefs.edit().putInt("networkDefaultsVersion",2).apply()
+        }
+    }
     var provider: String
         get() = prefs.getString("provider", Links.providers.first())!!
         set(value) { require(value.startsWith("https://") || value.startsWith("http://")); prefs.edit().putString("provider", value.trimEnd('/')).apply() }
     var official: Boolean
-        get() = prefs.getBoolean("official", true)
+        get() = prefs.getBoolean("official", false)
         set(value) { prefs.edit().putBoolean("official", value).apply() }
     var shareLink: String
         get() = prefs.getString("shareLink",Links.providers.first())!!
@@ -73,7 +80,7 @@ class RezkaApi(val settings: Settings) {
         else -> settings.endpoint + "/" + path.trimStart('/')
     }
     fun request(path: String, fields: Map<String, String> = emptyMap(), post: Boolean = false): String {
-        val u = absolute(path).toHttpUrl().newBuilder()
+        val u = absolute(if(post) path.trimEnd('/')+"/" else path).toHttpUrl().newBuilder()
         if (post) u.addQueryParameter("t", System.currentTimeMillis().toString()) else fields.forEach { (k,v) -> u.addQueryParameter(k,v) }
         val req = Request.Builder().url(u.build())
         headers().forEach { (k,v) -> req.header(k,v) }
@@ -83,21 +90,28 @@ class RezkaApi(val settings: Settings) {
             req.post(body.build())
         }
         return client.newCall(req.build()).execute().use { res ->
+            check(!post || res.request.method=="POST") { "Сервис перенаправил запрос входа или видео на обычную страницу. Проверьте выбранное зеркало." }
             check(res.isSuccessful) { "Сервис ответил HTTP ${res.code}" }
             val body = res.body?.string().orEmpty()
+            if(!body.trimStart().startsWith('{')) Parser.servicePageError(body)?.let {error(it)}
             val error = if (!body.trimStart().startsWith('{')) Jsoup.parse(body).selectFirst(".error-code") else null
             check(error == null) { Jsoup.parse(body).selectFirst(".error-title")?.text() ?: "Сервис временно недоступен" }
             body
         }
     }
-    fun json(path: String, fields: Map<String, String>): JSONObject = JSONObject(request(path, fields, true))
-    fun checked(path: String, fields: Map<String, String>): JSONObject = json(path, fields).also { check(it.optBoolean("success")) { Jsoup.parse(it.optString("message", "Не удалось выполнить запрос")).text() } }
+    fun json(path: String, fields: Map<String, String>): JSONObject {
+        val response=request(path,fields,true)
+        check(response.trimStart().startsWith("{")) { "Сервис вернул страницу вместо видеоданных. Проверьте зеркало и вход в аккаунт." }
+        return JSONObject(response)
+    }
+    fun checked(path: String, fields: Map<String, String>): JSONObject = json(path, fields).also { check(it.optBoolean("success")) { Jsoup.parse(it.optString("message", "Не удалось выполнить запрос")).text().ifBlank { "Сервис отклонил запрос. Проверьте доступ к выбранному видео или аккаунту на сайте." } } }
     fun catalog(path: String = "/new", page: Int = 1, filter: String = "", genre: String = ""): Catalog = Parser.catalog(request(path.trimEnd('/') + "/page/$page/", buildMap { if(filter.isNotEmpty()) put("filter",filter); if(genre.isNotEmpty()) put("genre",genre) }))
     fun search(query: String, page: Int): Catalog = Parser.catalog(request("/search/", mapOf("do" to "search", "subaction" to "search", "q" to query, "page" to "$page")))
     fun hot(genre: String = "0") = Parser.catalog(request("/engine/ajax/get_newest_slider_content.php", mapOf("id" to genre), true))
     fun film(url: String) = Parser.film(request(url), url)
     fun seasons(film: Film, voice: Voice): List<Season> {
-        val j = checked("/ajax/get_cdn_series", mapOf("id" to film.card.id,"translator_id" to voice.id,"action" to "get_episodes"))
+        val j = json("/ajax/get_cdn_series", mapOf("id" to film.card.id,"translator_id" to voice.id,"action" to "get_episodes"))
+        check(!j.has("success") || j.optBoolean("success")) { Jsoup.parse(j.optString("message","Не удалось получить серии")).text() }
         return Parser.seasons(Jsoup.parse(j.optString("seasons") + j.optString("episodes")))
     }
     fun video(film: Film, voice: Voice, season: String = "", episode: String = ""): Video {

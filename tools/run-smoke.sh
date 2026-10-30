@@ -15,6 +15,6 @@ mkdir -p build
 python3 - <<'PY'
 import pathlib,re
 s=pathlib.Path('build/smoke-test.log').read_text()
-if not re.search(r'OK \(5 tests\)',s) or 'FAILURES!!!' in s or 'INSTRUMENTATION_FAILED' in s:
+if not re.search(r'OK \(10 tests\)',s) or 'FAILURES!!!' in s or 'INSTRUMENTATION_FAILED' in s:
     raise SystemExit('Android smoke tests failed or did not finish')
 PY

@@ -1,0 +1,58 @@
+{
+  "recordedAt": "2026-10-30T09:30:11.171488+00:00",
+  "apk": "artifacts/LumenKot-1.0.2-test.apk",
+  "sha256": "61b2e37a4fff9e13e8fc414b141af56b3efffddde6a1c7efd851c6c19c05c847",
+  "jvmSuites": [
+    {
+      "name": "com.lumenkot.app.NativeRuntimeTest",
+      "tests": "13",
+      "failures": "0",
+      "errors": "0"
+    },
+    {
+      "name": "com.lumenkot.app.ParserTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0"
+    },
+    {
+      "name": "com.lumenkot.app.PipPresentationTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0"
+    },
+    {
+      "name": "com.lumenkot.app.PlayerInteractionTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0"
+    }
+  ],
+  "assembleRelease": "passed",
+  "assembleDebug": "passed",
+  "assembleDebugAndroidTest": "passed",
+  "lintDebug": "passed; warnings remain",
+  "androidAttempts": [
+    {
+      "device": "API35 AOSP ATD; no system PiP",
+      "result": "9 tests, 7 passed, 2 failed: media did not advance before deadline; touch injection window belonged to another UID",
+      "log": "player-1.0.2-atd-attempt.txt"
+    },
+    {
+      "device": "API35 Google APIs",
+      "result": "runner killed before first test; exit-info records startup ANR, concurrent system-app ANRs"
+    },
+    {
+      "device": "API35 Google APIs; one emulator/one vCPU, optional Google apps disabled",
+      "result": "poster/Continue/selected episode passed; playback/focus prerequisite failed; suite interrupted while a system ANR dialog covered the app",
+      "log": "player-1.0.2-single-attempt.txt"
+    },
+    {
+      "device": "same Google APIs image, separate bounded PiP attempt",
+      "result": "process killed before first test; latest exit-info reason=6 ANR, failed to complete startup",
+      "log": "player-1.0.2-pip-attempt.txt",
+      "exitInfo": "player-1.0.2-exit-info.txt"
+    }
+  ],
+  "realSystemPip": "NOT VERIFIED; JVM presentation simulation is not a successful real-system PiP test"
+}

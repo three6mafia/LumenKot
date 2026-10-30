@@ -7,8 +7,8 @@ android {
         minSdk = 24
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "1.0.2-test"
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -52,3 +52,11 @@ val prepareRobolectricSdk by tasks.registering(Copy::class) {
     into(layout.buildDirectory.dir("robolectric-sdks"))
 }
 tasks.withType<Test>().configureEach { dependsOn(prepareRobolectricSdk) }
+
+// A live-service check is a separate required operation, not an offline fixture test.
+tasks.withType<Test>().configureEach {
+    if (!project.hasProperty("liveRezka")) exclude("**/LiveRezkaTest*")
+    else listOf("https.proxyHost","https.proxyPort","http.proxyHost","http.proxyPort","javax.net.ssl.trustStore","javax.net.ssl.trustStorePassword","lumen.liveProvider","lumen.liveFilm","lumen.liveUserAgent").forEach { key ->
+        System.getProperty(key)?.let { value -> systemProperty(key,value) }
+    }
+}

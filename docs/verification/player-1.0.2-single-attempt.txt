@@ -1,0 +1,53 @@
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.PlayerRegressionTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=3
+INSTRUMENTATION_STATUS: stream=
+com.lumenkot.app.PlayerRegressionTest:
+INSTRUMENTATION_STATUS: test=aPosterActionsContinueAndSavedEpisodeAreVisible
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.PlayerRegressionTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=3
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=aPosterActionsContinueAndSavedEpisodeAreVisible
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.PlayerRegressionTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=3
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=bHoldingAndSeekingHaveFeedbackAndRestoreSpeed
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.PlayerRegressionTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=3
+INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: Test video must actually play
+	at org.junit.Assert.fail(Assert.java:89)
+	at com.lumenkot.app.PlayerRegressionTest.await(PlayerRegressionTest.kt:38)
+	at com.lumenkot.app.PlayerRegressionTest.await$default(PlayerRegressionTest.kt:35)
+	at com.lumenkot.app.PlayerRegressionTest.waitPlaying(PlayerRegressionTest.kt:49)
+	at com.lumenkot.app.PlayerRegressionTest.bHoldingAndSeekingHaveFeedbackAndRestoreSpeed(PlayerRegressionTest.kt:89)
+
+INSTRUMENTATION_STATUS: stream=
+Error in bHoldingAndSeekingHaveFeedbackAndRestoreSpeed(com.lumenkot.app.PlayerRegressionTest):
+java.lang.AssertionError: Test video must actually play
+	at org.junit.Assert.fail(Assert.java:89)
+	at com.lumenkot.app.PlayerRegressionTest.await(PlayerRegressionTest.kt:38)
+	at com.lumenkot.app.PlayerRegressionTest.await$default(PlayerRegressionTest.kt:35)
+	at com.lumenkot.app.PlayerRegressionTest.waitPlaying(PlayerRegressionTest.kt:49)
+	at com.lumenkot.app.PlayerRegressionTest.bHoldingAndSeekingHaveFeedbackAndRestoreSpeed(PlayerRegressionTest.kt:89)
+
+INSTRUMENTATION_STATUS: test=bHoldingAndSeekingHaveFeedbackAndRestoreSpeed
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.PlayerRegressionTest
+INSTRUMENTATION_STATUS: current=3
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=3
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=cPipKeepsPlayingAndReopenRestoresExactPosition
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_RESULT: shortMsg=Process crashed.
+INSTRUMENTATION_CODE: 0
