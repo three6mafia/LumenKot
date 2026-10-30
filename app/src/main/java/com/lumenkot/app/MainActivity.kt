@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private val muted get() = if(light) Color.parseColor("#3B3838") else Color.parseColor("#C4C7C5")
     private val tileBase get() = if(light) Color.parseColor("#C7C7C7") else Color.parseColor("#383838")
     private val tileFocus get() = if(light) Color.parseColor("#1C1C1C") else Color.parseColor("#E3E3E3")
+    private val playerResult=registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {current?.invoke()}
     private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { search(it) }
     }
@@ -80,7 +81,7 @@ class MainActivity : ComponentActivity() {
     }
     private val tv get() = (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK)==Configuration.UI_MODE_TYPE_TELEVISION
     private fun navIcon(name: String, action: () -> Unit): View = ImageButton(this).apply {
-        setImageDrawable(LumenIcon(name,this@MainActivity.foreground));if(name=="Аккаунт") setImageResource(R.drawable.profile_placeholder);contentDescription=name
+        scaleType=ImageView.ScaleType.FIT_CENTER;setImageDrawable(LumenIcon(name,this@MainActivity.foreground));if(name=="Аккаунт") setImageResource(R.drawable.profile_placeholder);contentDescription=name
         setBackgroundColor(Color.TRANSPARENT);setPadding(dp(12),dp(12),dp(12),dp(12))
         isFocusable=true;setOnClickListener { action() }
         setOnFocusChangeListener { _,focused -> background=GradientDrawable().apply {setColor(if(focused) tileBase else Color.TRANSPARENT);cornerRadius=dp(24).toFloat()} }
@@ -258,17 +259,65 @@ class MainActivity : ComponentActivity() {
         page("Фильм", {
             shell("Загрузка фильма")
             load({ api.film(url) }) { f ->
-                heading.text=f.card.title; note(f.original);note(f.info);body.addView(text(f.description));if(f.restricted.isNotBlank()) note(f.restricted)
-                val controls=row(button("▶ Смотреть") { chooseVoice(f,false) },button("↓ Скачать") { chooseVoice(f,true) },button("Закладка") {
-                    if(f.bookmarks.isEmpty()) toast("Войдите в аккаунт для закладок") else select("Добавить / убрать закладку",f.bookmarks.map { it.title }) { i -> load({ api.bookmark(f.card.id,f.bookmarks[i].id) }) { toast("Закладка обновлена") } }
-                },button("Поделиться") { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,(if(settings.official) settings.shareLink else settings.provider)+Uri.parse(api.absolute(f.card.url)).encodedPath),"Поделиться")) })
-                body.addView(horizontal(controls))
-                body.addView(horizontal(row(button("Комментарии") { comments(f) },button("Трейлер") { load({ api.trailer(f.card.id) }) { if(it.isNotBlank()) external(it) else toast("Трейлер недоступен") } },button("Оценить") { select("Ваша оценка",(1..10).map { "$it" }) { i -> load({ api.rating(f.card.id,i+1) }) { toast("Оценка: $it") } } })))
+                heading.text=""
+                (heading.parent as? LinearLayout)?.addView(navIcon("Поделиться") {shareFilm(f)},LinearLayout.LayoutParams(dp(48),dp(48)))
+                body.addView(text(f.card.title,20f).apply {setTypeface(null,Typeface.BOLD)})
+                if(f.original.isNotBlank()) body.addView(text(f.original,14f,muted))
+                val upper=row().apply {gravity=Gravity.TOP;setPadding(0,dp(16),0,0)}
+                val posterWidth=((resources.configuration.screenWidthDp-(if(tv) 68 else 0)-32)*.4f).toInt()
+                val poster=ImageView(this).apply {
+                    id=R.id.film_poster;contentDescription="Постер: ${f.card.title}";scaleType=ImageView.ScaleType.CENTER_CROP
+                    background=GradientDrawable().apply {setColor(tileBase);cornerRadius=dp(16).toFloat()};clipToOutline=true
+                }
+                upper.addView(poster,LinearLayout.LayoutParams(dp(posterWidth),dp((posterWidth*250f/166).toInt())))
+                upper.addView(text(f.info,12f),LinearLayout.LayoutParams(0,-2,1f).apply {marginStart=dp(16)})
+                body.addView(upper)
+                val screen=generation
+                lifecycleScope.launch {
+                    val bitmap=withContext(Dispatchers.IO) {runCatching {PosterLoader.load(api,f.card.image,f.card.url)}.getOrNull()}
+                    if(screen==generation) poster.setImageBitmap(bitmap)
+                }
+                val actions=row().apply {id=R.id.film_actions;setPadding(0,dp(16),0,0)}
+                fun filmAction(label: String, idValue: Int=View.NO_ID, action: ()->Unit) {
+                    val cell=FrameLayout(this)
+                    cell.addView(ImageButton(this).apply {
+                        id=idValue;contentDescription=label;scaleType=ImageView.ScaleType.FIT_CENTER;setImageDrawable(LumenIcon(label,this@MainActivity.foreground));setPadding(dp(12),dp(12),dp(12),dp(12))
+                        background=GradientDrawable().apply {setColor(if(light) Color.parseColor("#BABABA") else Color.parseColor("#5B5B5B"));cornerRadius=dp(22).toFloat()}
+                        setOnClickListener {action()}
+                    },FrameLayout.LayoutParams(dp(44),dp(44),Gravity.CENTER))
+                    actions.addView(cell,LinearLayout.LayoutParams(0,dp(52),1f))
+                }
+                if(api.cookies.signedIn()) filmAction("Оценить") {select("Ваша оценка",(1..10).map {"$it"}) {i->load({api.rating(f.card.id,i+1)}) {toast("Оценка: $it")}}}
+                filmAction("Трейлер") {load({api.trailer(f.card.id)}) {if(it.isNotBlank()) external(it) else toast("Трейлер недоступен")}}
+                filmAction("Комментарии") {comments(f)}
+                filmAction("В закладки",R.id.film_bookmark) {bookmarkFilm(f)}
+                filmAction("Скачать",R.id.film_download) {chooseVoice(f,true)}
+                body.addView(actions)
+                body.addView(text(f.description,14f,muted).apply {setPadding(dp(4),dp(16),dp(4),0);if(android.os.Build.VERSION.SDK_INT>=26) justificationMode=android.graphics.text.LineBreaker.JUSTIFICATION_MODE_INTER_WORD})
+                if(f.restricted.isNotBlank()) note(f.restricted)
+                body.addView(button("Смотреть") {chooseVoice(f,false)}.apply {
+                    id=R.id.film_watch;textSize=12f;setTextColor(Color.WHITE);setTypeface(null,Typeface.BOLD)
+                    background=GradientDrawable().apply {setColor(Color.parseColor("#E50000"));cornerRadius=dp(16).toFloat()}
+                    val icon=LumenIcon("Смотреть",Color.WHITE).apply {setBounds(0,0,dp(18),dp(18))};text=android.text.SpannableString("  Смотреть").apply {setSpan(android.text.style.ImageSpan(icon,android.text.style.ImageSpan.ALIGN_BASELINE),0,1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
+                },LinearLayout.LayoutParams(-1,dp(48)).apply {topMargin=dp(16)})
+                if(WatchProgress(settings.prefs).hasProgress(f.card.id)) body.addView(button("Продолжить") {chooseVoice(f,false)}.apply {
+                    id=R.id.film_continue;textSize=12f;setTextColor(Color.parseColor("#E50000"));setTypeface(null,Typeface.BOLD)
+                    val icon=LumenIcon("Продолжить",Color.parseColor("#E50000")).apply {setBounds(0,0,dp(18),dp(18))}
+                    text=android.text.SpannableString("  Продолжить").apply {setSpan(android.text.style.ImageSpan(icon,android.text.style.ImageSpan.ALIGN_BASELINE),0,1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
+                    background=GradientDrawable().apply {setColor(if(light) Color.WHITE else Color.BLACK);setStroke(dp(2),Color.parseColor("#E50000"));cornerRadius=dp(16).toFloat()}
+                },LinearLayout.LayoutParams(-1,dp(48)).apply {topMargin=dp(8)})
                 if(f.schedule.isNotBlank()) body.addView(button("Расписание серий") { AlertDialog.Builder(this).setTitle("Расписание").setMessage(f.schedule).setPositiveButton("Закрыть",null).show() })
                 f.links.forEach { c -> body.addView(button(c.title) { openLink(c.id) }) }
                 if(f.related.isNotEmpty()) { body.addView(text("Похожие фильмы",22f,accent)); cards(f.related) }
             }
         })
+    }
+    private fun shareFilm(f: Film) {
+        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,(if(settings.official) settings.shareLink else settings.provider)+Uri.parse(api.absolute(f.card.url)).encodedPath),"Поделиться"))
+    }
+    private fun bookmarkFilm(f: Film) {
+        if(f.bookmarks.isEmpty()) toast("Войдите в аккаунт для закладок")
+        else select("Добавить / убрать закладку",f.bookmarks.map {it.title}) {i->load({api.bookmark(f.card.id,f.bookmarks[i].id)}) {toast("Закладка обновлена")}}
     }
     private fun chooseVoice(f: Film, download: Boolean) {
         if(f.restricted.isNotBlank()) { toast(f.restricted);return }
@@ -285,7 +334,7 @@ class MainActivity : ComponentActivity() {
                     payload.put("voices",JSONArray(f.voices.map { JSONObject().put("id",it.id).put("title",it.title) }))
                     payload.put("streams",JSONArray(video.streams.map { JSONObject().put("quality",it.quality).put("url",it.url) }))
                     payload.put("subtitles",JSONArray(video.subtitles.map { JSONObject().put("title",it.title).put("url",it.url).put("language",it.language).put("default",it.default) }))
-                    startActivity(Intent(this,PlayerActivity::class.java).putExtra("media",payload.toString()))
+                    playerResult.launch(Intent(this,PlayerActivity::class.java).putExtra("media",payload.toString()))
                 }
             }
     }

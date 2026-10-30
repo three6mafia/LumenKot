@@ -1,0 +1,212 @@
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=
+com.lumenkot.app.NativeSmokeTest:
+INSTRUMENTATION_STATUS: test=nativeMainActivityLaunches
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=nativeMainActivityLaunches
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=localHistoryPersists
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=localHistoryPersists
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=3
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=media3PlaysLocalMp4
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=3
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: Media3 must actually advance through the MP4
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.lumenkot.app.NativeSmokeTest.media3PlaysLocalMp4(NativeSmokeTest.kt:107)
+
+INSTRUMENTATION_STATUS: stream=
+Error in media3PlaysLocalMp4(com.lumenkot.app.NativeSmokeTest):
+java.lang.AssertionError: Media3 must actually advance through the MP4
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.lumenkot.app.NativeSmokeTest.media3PlaysLocalMp4(NativeSmokeTest.kt:107)
+
+INSTRUMENTATION_STATUS: test=media3PlaysLocalMp4
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=4
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=watchSelectionFetchesVideoWithoutLogin
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=4
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=watchSelectionFetchesVideoWithoutLogin
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=5
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=loginCookiesPersistAndRespectHostScope
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=5
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=loginCookiesPersistAndRespectHostScope
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=6
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=catalogFilmAndStreamUseNativeApi
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=6
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=catalogFilmAndStreamUseNativeApi
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=7
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=seriesSelectionLoadsAndPlaysEpisode
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.NativeSmokeTest
+INSTRUMENTATION_STATUS: current=7
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=seriesSelectionLoadsAndPlaysEpisode
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.PlayerRegressionTest
+INSTRUMENTATION_STATUS: current=8
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=
+com.lumenkot.app.PlayerRegressionTest:
+INSTRUMENTATION_STATUS: test=aPosterActionsContinueAndSavedEpisodeAreVisible
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.PlayerRegressionTest
+INSTRUMENTATION_STATUS: current=8
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=aPosterActionsContinueAndSavedEpisodeAreVisible
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.PlayerRegressionTest
+INSTRUMENTATION_STATUS: current=9
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=bHoldingAndSeekingHaveFeedbackAndRestoreSpeed
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.lumenkot.app.PlayerRegressionTest
+INSTRUMENTATION_STATUS: current=9
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=9
+INSTRUMENTATION_STATUS: stack=java.lang.IllegalArgumentException: Targeted input event injection from pid 2553 was not directed at a window owned by uid 10138.
+	at android.os.Parcel.createExceptionOrNull(Parcel.java:3246)
+	at android.os.Parcel.createException(Parcel.java:3226)
+	at android.os.Parcel.readException(Parcel.java:3209)
+	at android.os.Parcel.readException(Parcel.java:3151)
+	at android.hardware.input.IInputManager$Stub$Proxy.injectInputEventToTarget(IInputManager.java:1542)
+	at android.hardware.input.InputManagerGlobal.injectInputEvent(InputManagerGlobal.java:1388)
+	at android.app.Instrumentation.syncInputTransactionsAndInjectEventIntoSelf(Instrumentation.java:1303)
+	at android.app.Instrumentation.sendPointerSync(Instrumentation.java:1288)
+	at com.lumenkot.app.PlayerRegressionTest.touch(PlayerRegressionTest.kt:82)
+	at com.lumenkot.app.PlayerRegressionTest.bHoldingAndSeekingHaveFeedbackAndRestoreSpeed(PlayerRegressionTest.kt:96)
+	... 34 trimmed
+Caused by: android.os.RemoteException: Remote stack trace:
+	at com.android.server.input.InputManagerService.injectInputEventToTarget(InputManagerService.java:919)
+	at android.hardware.input.IInputManager$Stub.onTransact(IInputManager.java:727)
+	at android.os.Binder.execTransactInternal(Binder.java:1500)
+	at android.os.Binder.execTransact(Binder.java:1444)
+
+
+INSTRUMENTATION_STATUS: stream=
+Error in bHoldingAndSeekingHaveFeedbackAndRestoreSpeed(com.lumenkot.app.PlayerRegressionTest):
+java.lang.IllegalArgumentException: Targeted input event injection from pid 2553 was not directed at a window owned by uid 10138.
+	at android.os.Parcel.createExceptionOrNull(Parcel.java:3246)
+	at android.os.Parcel.createException(Parcel.java:3226)
+	at android.os.Parcel.readException(Parcel.java:3209)
+	at android.os.Parcel.readException(Parcel.java:3151)
+	at android.hardware.input.IInputManager$Stub$Proxy.injectInputEventToTarget(IInputManager.java:1542)
+	at android.hardware.input.InputManagerGlobal.injectInputEvent(InputManagerGlobal.java:1388)
+	at android.app.Instrumentation.syncInputTransactionsAndInjectEventIntoSelf(Instrumentation.java:1303)
+	at android.app.Instrumentation.sendPointerSync(Instrumentation.java:1288)
+	at com.lumenkot.app.PlayerRegressionTest.touch(PlayerRegressionTest.kt:82)
+	at com.lumenkot.app.PlayerRegressionTest.bHoldingAndSeekingHaveFeedbackAndRestoreSpeed(PlayerRegressionTest.kt:96)
+	... 34 trimmed
+Caused by: android.os.RemoteException: Remote stack trace:
+	at com.android.server.input.InputManagerService.injectInputEventToTarget(InputManagerService.java:919)
+	at android.hardware.input.IInputManager$Stub.onTransact(IInputManager.java:727)
+	at android.os.Binder.execTransactInternal(Binder.java:1500)
+	at android.os.Binder.execTransact(Binder.java:1444)
+
+
+INSTRUMENTATION_STATUS: test=bHoldingAndSeekingHaveFeedbackAndRestoreSpeed
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_RESULT: stream=
+
+Time: 704.548
+There were 2 failures:
+1) media3PlaysLocalMp4(com.lumenkot.app.NativeSmokeTest)
+java.lang.AssertionError: Media3 must actually advance through the MP4
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.lumenkot.app.NativeSmokeTest.media3PlaysLocalMp4(NativeSmokeTest.kt:107)
+2) bHoldingAndSeekingHaveFeedbackAndRestoreSpeed(com.lumenkot.app.PlayerRegressionTest)
+java.lang.IllegalArgumentException: Targeted input event injection from pid 2553 was not directed at a window owned by uid 10138.
+	at android.os.Parcel.createExceptionOrNull(Parcel.java:3246)
+	at android.os.Parcel.createException(Parcel.java:3226)
+	at android.os.Parcel.readException(Parcel.java:3209)
+	at android.os.Parcel.readException(Parcel.java:3151)
+	at android.hardware.input.IInputManager$Stub$Proxy.injectInputEventToTarget(IInputManager.java:1542)
+	at android.hardware.input.InputManagerGlobal.injectInputEvent(InputManagerGlobal.java:1388)
+	at android.app.Instrumentation.syncInputTransactionsAndInjectEventIntoSelf(Instrumentation.java:1303)
+	at android.app.Instrumentation.sendPointerSync(Instrumentation.java:1288)
+	at com.lumenkot.app.PlayerRegressionTest.touch(PlayerRegressionTest.kt:82)
+	at com.lumenkot.app.PlayerRegressionTest.bHoldingAndSeekingHaveFeedbackAndRestoreSpeed(PlayerRegressionTest.kt:96)
+	... 34 trimmed
+Caused by: android.os.RemoteException: Remote stack trace:
+	at com.android.server.input.InputManagerService.injectInputEventToTarget(InputManagerService.java:919)
+	at android.hardware.input.IInputManager$Stub.onTransact(IInputManager.java:727)
+	at android.os.Binder.execTransactInternal(Binder.java:1500)
+	at android.os.Binder.execTransact(Binder.java:1444)
+
+
+FAILURES!!!
+Tests run: 9,  Failures: 2
+
+
+INSTRUMENTATION_CODE: -1

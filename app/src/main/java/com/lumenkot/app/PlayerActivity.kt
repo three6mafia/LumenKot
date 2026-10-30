@@ -2,6 +2,20 @@ package com.lumenkot.app
 
 import android.app.AlertDialog
 import android.app.PictureInPictureParams
+import android.app.AppOpsManager
+import android.app.RemoteAction
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.graphics.drawable.Icon
+import android.graphics.Rect
+import android.media.AudioManager
+import kotlin.math.roundToInt
+import android.graphics.drawable.GradientDrawable
+import android.util.Rational
+import android.os.Process
+import android.os.SystemClock
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.net.Uri
@@ -10,10 +24,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
-import android.view.GestureDetector
-import android.view.MotionEvent
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
 import android.graphics.Color
@@ -47,6 +58,24 @@ class PlayerActivity: ComponentActivity() {
     private lateinit var data: JSONObject
     private lateinit var settings: Settings
     private lateinit var api: RezkaApi
+    companion object {
+        const val PIP_PLAY_PAUSE_ACTION="com.lumenkot.app.PIP_PLAY_PAUSE"
+        const val PIP_PREVIOUS_ACTION="com.lumenkot.app.PIP_PREVIOUS"
+        const val PIP_NEXT_ACTION="com.lumenkot.app.PIP_NEXT"
+    }
+    private var receiverRegistered=false
+    private val pipReceiver=object: BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if(!::player.isInitialized || released) return
+            when(intent?.action) {
+                PIP_PREVIOUS_ACTION -> nextEpisode(-1)
+                PIP_NEXT_ACTION -> nextEpisode(1)
+                PIP_PLAY_PAUSE_ACTION -> if(player.playWhenReady) player.pause() else {if(player.playbackState==Player.STATE_ENDED) player.seekTo(0);if(player.playbackState==Player.STATE_IDLE) player.prepare();player.play()}
+                else -> return
+            }
+            updatePipParams()
+        }
+    }
     private var position=0L
     private var playing=true
     private var released=false
@@ -54,56 +83,68 @@ class PlayerActivity: ComponentActivity() {
     private lateinit var titleView: TextView
     private var progressJob: Job? = null
     private var infoJob: Job? = null
+    private var episodeJob: Job? = null
+    private var switchingEpisode=false
     private lateinit var cloud: CloudProgress
     private lateinit var surface: PlayerView
     private lateinit var toolbar: LinearLayout
     private lateinit var errorView: TextView
+    private lateinit var root: PlayerGestureLayout
+    private lateinit var holdFeedback: TextView
+    private lateinit var backFeedback: TextView
+    private lateinit var forwardFeedback: TextView
+    private lateinit var swipeFeedback: TextView
+    private var swipeVolume=false
+    private var swipeStart=0f
+    private var customBrightness=-1f
+    private val hideSwipe=Runnable {if(::swipeFeedback.isInitialized) swipeFeedback.visibility=View.GONE}
+    private var temporarySpeed: Float? = null
+    private var seekDirection: Boolean? = null
+    private var seekTotal = 0
+    private var lastSeekAt = 0L
+    private val hideSeek = Runnable {backFeedback.visibility=View.GONE;forwardFeedback.visibility=View.GONE}
     private val key get() = "position:${data.optString("film",data.optString("url"))}:${data.optString("voice")}:${data.optString("season")}:${data.optString("episode")}"
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         data=runCatching { JSONObject(intent.getStringExtra("media") ?: "{}") }.getOrElse { finish();return }
         if(data.optString("url").isBlank()) { finish();return }
         settings=Settings(this);api=RezkaApi(settings);cloud=CloudProgress(this,settings,api)
+        androidx.core.content.ContextCompat.registerReceiver(this,pipReceiver,IntentFilter(PIP_PLAY_PAUSE_ACTION).apply {addAction(PIP_PREVIOUS_ACTION);addAction(PIP_NEXT_ACTION)},androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+        receiverRegistered=true
         position=savedInstanceState?.getLong("position") ?: settings.prefs.getLong(key,0)
         playing=savedInstanceState?.getBoolean("playing") ?: true
+        customBrightness=savedInstanceState?.getFloat("brightness",-1f) ?: -1f
+        if(customBrightness>=0) window.attributes=window.attributes.apply {screenBrightness=customBrightness}
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if((resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK)!=android.content.res.Configuration.UI_MODE_TYPE_TELEVISION) requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        val root=FrameLayout(this)
+        root=PlayerGestureLayout(this)
         val attributes=resources.getLayout(R.layout.lumen_player_surface)
         while(attributes.next()!=org.xmlpull.v1.XmlPullParser.START_TAG) { }
         surface=PlayerView(this,android.util.Xml.asAttributeSet(attributes)).apply { id=R.id.player_surface; setShowSubtitleButton(true);setShowNextButton(false);setShowPreviousButton(false);controllerShowTimeoutMs=5000;keepScreenOn=true;setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS);setControllerAutoShow(true) }
         attributes.close()
         root.addView(surface,FrameLayout.LayoutParams(-1,-1))
-        var heldSpeed: Float?=null
-        val gestures=GestureDetector(this,object: GestureDetector.SimpleOnGestureListener() {
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                if(::player.isInitialized && !released && !controlsLocked) {if(e.x<surface.width/2) player.seekBack() else player.seekForward()}
-                return true
-            }
-            override fun onLongPress(e: MotionEvent) {
-                if(::player.isInitialized && !released && !controlsLocked && player.isPlaying) {heldSpeed=player.playbackParameters.speed;player.setPlaybackSpeed(1.5f)}
-            }
-        })
-        surface.setOnTouchListener { _,event ->
-            val handled=gestures.onTouchEvent(event)
-            if(event.action==MotionEvent.ACTION_UP || event.action==MotionEvent.ACTION_CANCEL) heldSpeed?.let {if(::player.isInitialized && !released) player.setPlaybackSpeed(it);heldSpeed=null}
-            handled
-        }
+        root.enabledForVideo={::player.isInitialized && !released && !controlsLocked && !(Build.VERSION.SDK_INT>=26 && isInPictureInPictureMode)}
+        root.toggleControls={if(surface.isControllerFullyVisible) surface.hideController() else surface.showController()}
+        root.seek={forward -> seekVideo(forward)}
+        root.hold={active -> setTemporarySpeed(active)}
+        root.verticalStart={volume ->beginSwipe(volume)}
+        root.verticalChange={delta ->adjustSwipe(delta)}
+        root.verticalEnd={root.removeCallbacks(hideSwipe);root.postDelayed(hideSwipe,700)}
         toolbar=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL;setBackgroundColor(0x99000000.toInt());gravity=Gravity.CENTER_VERTICAL;setPadding(dp(16),dp(16),dp(16),0) }
         fun control(label: String, container: LinearLayout=toolbar, action: () -> Unit): ImageButton {
             return ImageButton(this).apply {
-                contentDescription=label;setImageDrawable(LumenIcon(label,Color.WHITE));setBackgroundColor(Color.TRANSPARENT);setPadding(dp(9),dp(9),dp(9),dp(9));setOnClickListener {if(!released) action()}
+                contentDescription=label;scaleType=android.widget.ImageView.ScaleType.FIT_CENTER;setImageDrawable(LumenIcon(label,Color.WHITE));setBackgroundColor(Color.TRANSPARENT);setPadding(dp(9),dp(9),dp(9),dp(9));setOnClickListener {if(!released) action()}
                 container.addView(this,LinearLayout.LayoutParams(dp(42),dp(42)).apply {leftMargin=dp(12)})
             }
         }
         control("‹") { finish() }
         val titleColumn=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL}
-        titleView=TextView(this).apply {setTextColor(Color.WHITE);textSize=18f;setTypeface(null,android.graphics.Typeface.BOLD);maxLines=2}
+        titleView=TextView(this).apply {id=R.id.player_title;setTextColor(Color.WHITE);textSize=18f;setTypeface(null,android.graphics.Typeface.BOLD);maxLines=2}
         titleColumn.addView(titleView)
         titleColumn.addView(TextView(this).apply {text=data.optString("subtitle");setTextColor(Color.WHITE);textSize=14f})
         toolbar.addView(titleColumn,LinearLayout.LayoutParams(0,-2,1f))
         updateTitle()
-        control("PiP") { if(Build.VERSION.SDK_INT>=26 && packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) enterPictureInPictureMode(PictureInPictureParams.Builder().build()) }
+        control("PiP") { enterPip(true) }.id=R.id.player_pip
         control("Скорость") {
             val speeds=listOf(.5f,.75f,1f,1.25f,1.5f,1.75f,2f)
             AlertDialog.Builder(this).setTitle("Скорость").setItems(speeds.map { "${it}×" }.toTypedArray()) { _,i -> player.setPlaybackSpeed(speeds[i]) }.show()
@@ -124,7 +165,7 @@ class PlayerActivity: ComponentActivity() {
             }.show()
         }
         control("Блокировка") {
-            controlsLocked=!controlsLocked
+            root.resetGesture();controlsLocked=!controlsLocked
             for(i in 0 until toolbar.childCount) {val child=toolbar.getChildAt(i);if(child is ImageButton && child.contentDescription!="Блокировка") child.visibility=if(controlsLocked) View.GONE else View.VISIBLE}
             (toolbar.getChildAt(toolbar.childCount-1) as ImageButton).setImageDrawable(LumenIcon(if(controlsLocked) "Заблокировано" else "Блокировка",Color.WHITE))
             surface.findViewById<View>(R.id.lumen_middle).visibility=if(controlsLocked) View.INVISIBLE else View.VISIBLE
@@ -143,12 +184,30 @@ class PlayerActivity: ComponentActivity() {
         }
         control("Экран",bottom) { surface.resizeMode=if(surface.resizeMode==androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT }
         root.addView(toolbar,FrameLayout.LayoutParams(-1,-2,Gravity.TOP))
-        surface.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { toolbar.visibility=it })
+        surface.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { toolbar.visibility=if(Build.VERSION.SDK_INT>=26 && isInPictureInPictureMode) View.GONE else it })
         errorView=TextView(this).apply {
-            visibility=View.GONE;setTextColor(Color.WHITE);textSize=16f;gravity=Gravity.CENTER;setBackgroundColor(0xDD000000.toInt());setPadding(24,24,24,24)
+            id=R.id.player_error;visibility=View.GONE;setTextColor(Color.WHITE);textSize=16f;gravity=Gravity.CENTER;setBackgroundColor(0xDD000000.toInt());setPadding(24,24,24,24)
             setOnClickListener {if(::player.isInitialized && !released) {visibility=View.GONE;player.prepare();player.play()}}
         }
         root.addView(errorView,FrameLayout.LayoutParams(-1,-2,Gravity.CENTER))
+        fun feedback(idValue: Int)=TextView(this).apply {
+            id=idValue;visibility=View.GONE;setTextColor(Color.WHITE);textSize=16f;gravity=Gravity.CENTER
+            setTypeface(null,android.graphics.Typeface.BOLD);setPadding(dp(12),dp(6),dp(12),dp(6))
+            background=GradientDrawable().apply {setColor(0x99000000.toInt());cornerRadius=dp(24).toFloat()}
+            importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_YES;accessibilityLiveRegion=View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
+        holdFeedback=feedback(R.id.player_hold_feedback).apply {text="▶▶ 2×"}
+        backFeedback=feedback(R.id.player_seek_backward);forwardFeedback=feedback(R.id.player_seek_forward)
+        swipeFeedback=feedback(R.id.player_swipe_feedback)
+        root.addView(holdFeedback,FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {bottomMargin=dp(48)})
+        root.addView(backFeedback,FrameLayout.LayoutParams(dp(130),dp(80),Gravity.CENTER_VERTICAL or Gravity.START))
+        root.addView(forwardFeedback,FrameLayout.LayoutParams(dp(130),dp(80),Gravity.CENTER_VERTICAL or Gravity.END))
+        root.addView(swipeFeedback,FrameLayout.LayoutParams(dp(130),dp(100),Gravity.CENTER_VERTICAL))
+        root.addOnLayoutChangeListener {_,_,_,_,_,_,_,_,_ ->
+            (backFeedback.layoutParams as FrameLayout.LayoutParams).marginStart=(root.width/5-dp(65)).coerceAtLeast(0)
+            (forwardFeedback.layoutParams as FrameLayout.LayoutParams).marginEnd=(root.width/5-dp(65)).coerceAtLeast(0)
+            updatePipParams()
+        }
         setContentView(root)
         androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply { hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE }
     }
@@ -163,16 +222,20 @@ class PlayerActivity: ComponentActivity() {
     }
     override fun onStart() {
         super.onStart()
+        if(::player.isInitialized && !released) return
         if(::data.isInitialized && ::surface.isInitialized) {
             val http=OkHttpDataSource.Factory(api.client.newBuilder().callTimeout(0,java.util.concurrent.TimeUnit.MILLISECONDS).build()).setDefaultRequestProperties(api.headers())
             val sources=DefaultDataSource.Factory(this,http)
             player=ExoPlayer.Builder(this).setMediaSourceFactory(DefaultMediaSourceFactory(sources)).setSeekBackIncrementMs(settings.prefs.getInt("seekSeconds",10)*1000L).setSeekForwardIncrementMs(settings.prefs.getInt("seekSeconds",10)*1000L).build()
             released=false;surface.player=player
             val serial=data.optJSONArray("seasons")?.length()?.let {it>0} ?: false
-            surface.findViewById<ImageButton>(R.id.lumen_next).apply {visibility=if(serial) View.VISIBLE else View.GONE;setImageDrawable(LumenIcon("Следующая",Color.WHITE));setOnClickListener {nextEpisode()} }
-            surface.findViewById<ImageButton>(R.id.lumen_previous).apply {visibility=if(serial) View.VISIBLE else View.GONE;setImageDrawable(LumenIcon("Предыдущая",Color.WHITE));setOnClickListener {nextEpisode(-1)} }
+            surface.findViewById<ImageButton>(R.id.lumen_next).apply {scaleType=android.widget.ImageView.ScaleType.FIT_CENTER;setPadding(dp(10),dp(10),dp(10),dp(10));visibility=if(serial) View.VISIBLE else View.GONE;setImageDrawable(LumenIcon("Следующая",Color.WHITE));setOnClickListener {nextEpisode()} }
+            surface.findViewById<ImageButton>(R.id.lumen_previous).apply {scaleType=android.widget.ImageView.ScaleType.FIT_CENTER;setPadding(dp(10),dp(10),dp(10),dp(10));visibility=if(serial) View.VISIBLE else View.GONE;setImageDrawable(LumenIcon("Предыдущая",Color.WHITE));setOnClickListener {nextEpisode(-1)} }
             player.addListener(object: Player.Listener {
+                override fun onIsPlayingChanged(isPlaying: Boolean) {updatePipParams()}
+                override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {updatePipParams()}
                 override fun onPlaybackStateChanged(state: Int) {
+                    updatePipParams()
                     if(!released && state==Player.STATE_ENDED && settings.prefs.getBoolean("autoNext",true)) nextEpisode()
                 }
                 override fun onPlayerError(error: PlaybackException) {
@@ -184,6 +247,7 @@ class PlayerActivity: ComponentActivity() {
             })
             player.addListener(object: Player.Listener {
                 override fun onVideoSizeChanged(size: androidx.media3.common.VideoSize) {
+                    updatePipParams()
                     surface.findViewById<TextView>(R.id.lumen_track_info).text="${size.width}×${size.height} · ${data.optString("quality")}"
                 }
             })
@@ -204,7 +268,7 @@ class PlayerActivity: ComponentActivity() {
                     delay(15000)
                     if(!released) {
                         val at=player.currentPosition;val duration=player.duration
-                        settings.prefs.edit().putLong(key,at).apply()
+                        saveProgress()
                         val snapshot=JSONObject(data.toString())
                         withContext(Dispatchers.IO) { runCatching { cloud.save(snapshot,at,duration) } }
                     }
@@ -240,7 +304,7 @@ class PlayerActivity: ComponentActivity() {
             try {
                 val film=withContext(Dispatchers.IO) {api.film(data.getString("filmUrl"))}
                 if(!isFinishing && !released) VideoSelectionDialog(this@PlayerActivity,api,film,lifecycleScope,false) {voice,season,episode,seasons,video ->
-                    settings.prefs.edit().putLong(key,player.currentPosition).apply()
+                    saveProgress()
                     data.put("voice",voice.id).put("season",season).put("episode",episode)
                     data.put("seasons",JSONArray(seasons.map {s->JSONObject().put("id",s.id).put("title",s.title).put("episodes",JSONArray(s.episodes.map {JSONObject().put("id",it.id).put("title",it.title)}))}))
                     applyVideo(video)
@@ -253,55 +317,199 @@ class PlayerActivity: ComponentActivity() {
         data.put("url",stream.url).put("quality",stream.quality)
         data.put("streams",JSONArray(video.streams.map {JSONObject().put("quality",it.quality).put("url",it.url)}))
         data.put("subtitles",JSONArray(video.subtitles.map {JSONObject().put("title",it.title).put("url",it.url).put("language",it.language).put("default",it.default)}))
-        errorView.visibility=View.GONE;updateTitle();player.setMediaItem(media());player.prepare();player.play()
+        errorView.visibility=View.GONE;updateTitle();player.setMediaItem(media());player.prepare();player.play();updatePipParams()
+    }
+    private fun episodeList(): List<Pair<String,String>> {
+        val seasons=data.optJSONArray("seasons") ?: return emptyList()
+        val all=mutableListOf<Pair<String,String>>()
+        for(s in 0 until seasons.length()) {
+            val season=seasons.getJSONObject(s);val episodes=season.getJSONArray("episodes")
+            for(e in 0 until episodes.length()) all.add(season.getString("id") to episodes.getJSONObject(e).getString("id"))
+        }
+        return all
+    }
+    private fun canChangeEpisode(direction: Int): Boolean {
+        if(switchingEpisode || data.optString("filmUrl").isBlank()) return false
+        val all=episodeList();val index=all.indexOf(data.optString("season") to data.optString("episode"))
+        return index>=0 && index+direction in all.indices
     }
     private fun nextEpisode(direction: Int = 1) {
-        val seasons=data.optJSONArray("seasons") ?: return
-        val all=mutableListOf<Pair<String,String>>()
-        for(s in 0 until seasons.length()) { val season=seasons.getJSONObject(s);val eps=season.getJSONArray("episodes");for(e in 0 until eps.length()) all.add(season.getString("id") to eps.getJSONObject(e).getString("id")) }
-        val index=all.indexOf(data.optString("season") to data.optString("episode"))
-        if(index>=0 && index+direction in all.indices) { val next=all[index+direction];changeEpisode(next.first,next.second) }
+        if(!canChangeEpisode(direction) || released) return
+        val all=episodeList();val index=all.indexOf(data.optString("season") to data.optString("episode"))
+        if(Build.VERSION.SDK_INT<26 || !isInPictureInPictureMode) showSeekFeedback(direction>0,if(direction>0) "Следующая серия" else "Предыдущая серия")
+        val next=all[index+direction];changeEpisode(next.first,next.second)
     }
     private fun changeEpisode(season: String,episode: String) {
         if(data.optString("filmUrl").isBlank()) return
-        val wasPlaying=player.playWhenReady;player.pause()
-        lifecycleScope.launch {
+        val wasPlaying=player.playWhenReady;player.pause();switchingEpisode=true;updatePipParams()
+        episodeJob=lifecycleScope.launch {
             try {
                 val video=withContext(Dispatchers.IO) { val f=api.film(data.getString("filmUrl"));val voice=f.voices.firstOrNull { it.id==data.optString("voice") } ?: f.voices.first();api.video(f,voice,season,episode) }
                 if(released) return@launch
                 require(video.streams.isNotEmpty()) { "Видео недоступно" }
-                settings.prefs.edit().putLong(key,player.currentPosition).apply()
+                saveProgress()
                 data.put("season",season).put("episode",episode)
                 if(!released) applyVideo(video)
-            } catch(e: Exception) { if(e is kotlinx.coroutines.CancellationException) throw e;Toast.makeText(this@PlayerActivity,e.message ?: "Не удалось открыть серию",Toast.LENGTH_LONG).show();player.playWhenReady=wasPlaying }
+            } catch(e: Exception) { if(e is kotlinx.coroutines.CancellationException) throw e;Toast.makeText(this@PlayerActivity,e.message ?: "Не удалось открыть серию",Toast.LENGTH_LONG).show();if(!released) player.playWhenReady=wasPlaying } finally {switchingEpisode=false;updatePipParams()}
         }
     }
     override fun onSaveInstanceState(outState: Bundle) {
+        outState.putFloat("brightness",customBrightness)
         if(::player.isInitialized && !released) { outState.putLong("position",player.currentPosition);outState.putBoolean("playing",player.playWhenReady) }
         super.onSaveInstanceState(outState)
     }
+    private fun beginSwipe(volume: Boolean) {
+        swipeVolume=volume;root.removeCallbacks(hideSwipe);root.removeCallbacks(hideSeek);hideSeek.run()
+        swipeStart=if(volume) {
+            val audio=getSystemService(AudioManager::class.java)
+            audio.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()/audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        } else if(customBrightness>=0) customBrightness else {
+            android.provider.Settings.System.getInt(contentResolver,android.provider.Settings.System.SCREEN_BRIGHTNESS,128)/255f
+        }
+        val params=swipeFeedback.layoutParams as FrameLayout.LayoutParams
+        params.gravity=Gravity.CENTER_VERTICAL or if(volume) Gravity.END else Gravity.START
+        params.marginStart=if(volume) 0 else (root.width/5-dp(65)).coerceAtLeast(0)
+        params.marginEnd=if(volume) (root.width/5-dp(65)).coerceAtLeast(0) else 0
+        swipeFeedback.layoutParams=params
+        adjustSwipe(0f)
+    }
+    private fun adjustSwipe(delta: Float) {
+        val target=(swipeStart+delta).coerceIn(0f,1f)
+        val label=if(swipeVolume) {
+            val audio=getSystemService(AudioManager::class.java)
+            if(audio.isVolumeFixed) "Громкость\nРегулируется устройством" else {
+                val max=audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                audio.setStreamVolume(AudioManager.STREAM_MUSIC,(target*max).roundToInt().coerceIn(0,max),0)
+                "Громкость\n${(audio.getStreamVolume(AudioManager.STREAM_MUSIC)*100f/max).roundToInt()}%"
+            }
+        } else {
+            customBrightness=target.coerceAtLeast(.01f)
+            window.attributes=window.attributes.apply {screenBrightness=customBrightness}
+            "Яркость\n${(customBrightness*100).roundToInt()}%"
+        }
+        swipeFeedback.text=label;swipeFeedback.visibility=View.VISIBLE
+    }
+    private fun setTemporarySpeed(active: Boolean) {
+        if(active && ::player.isInitialized && !released && player.isPlaying && !controlsLocked) {
+            if(temporarySpeed==null) temporarySpeed=player.playbackParameters.speed
+            player.setPlaybackSpeed(2f);holdFeedback.visibility=View.VISIBLE
+        } else if(!active) {
+            temporarySpeed?.let {if(::player.isInitialized && !released) player.setPlaybackSpeed(it)}
+            temporarySpeed=null
+            if(::holdFeedback.isInitialized) holdFeedback.visibility=View.GONE
+        }
+    }
+    private fun seekVideo(forward: Boolean) {
+        if(!::player.isInitialized || released || controlsLocked) return
+        val seconds=settings.prefs.getInt("seekSeconds",10)
+        val now=SystemClock.uptimeMillis()
+        seekTotal=if(seekDirection==forward && now-lastSeekAt<2000) seekTotal+seconds else seconds
+        seekDirection=forward;lastSeekAt=now
+        if(forward) player.seekForward() else player.seekBack()
+        showSeekFeedback(forward,"${seekTotal} сек.")
+    }
+    private fun showSeekFeedback(forward: Boolean, label: String) {
+        backFeedback.visibility=View.GONE;forwardFeedback.visibility=View.GONE
+        (if(forward) forwardFeedback else backFeedback).apply {text=(if(forward) "▶▶" else "◀◀")+"\n"+label;visibility=View.VISIBLE}
+        root.removeCallbacks(hideSeek);root.postDelayed(hideSeek,2000)
+    }
+    @androidx.annotation.ChecksSdkIntAtLeast(api=26)
+    private fun pipSupported()=Build.VERSION.SDK_INT>=26 && packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)
+    private fun pipAllowed(): Boolean {
+        if(!pipSupported()) return false
+        val manager=getSystemService(AppOpsManager::class.java)
+        val mode=if(Build.VERSION.SDK_INT>=29) manager.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE,Process.myUid(),packageName)
+            else manager.checkOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE,Process.myUid(),packageName)
+        return mode==AppOpsManager.MODE_ALLOWED || mode==AppOpsManager.MODE_DEFAULT
+    }
+    @androidx.annotation.RequiresApi(26)
+    private fun pipParams(): PictureInPictureParams {
+        val ratio=if(::player.isInitialized && !released && player.videoSize.height>0) (player.videoSize.width*player.videoSize.pixelWidthHeightRatio/player.videoSize.height).coerceIn(.42f,2.39f) else 16f/9f
+        fun action(actionName: String, request: Int, icon: Int, label: String, enabled: Boolean=true): RemoteAction {
+            val pending=PendingIntent.getBroadcast(this,request,Intent(actionName).setPackage(packageName),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            return RemoteAction(Icon.createWithResource(this,icon),label,label,pending).apply {isEnabled=enabled}
+        }
+        val pause=::player.isInitialized && !released && player.playWhenReady
+        val play=action(PIP_PLAY_PAUSE_ACTION,0,if(pause) R.drawable.lumen_pip_pause else R.drawable.lumen_pip_play,if(pause) "Пауза" else "Воспроизвести",!switchingEpisode)
+        val actions=if(episodeList().isNotEmpty()) listOf(
+            action(PIP_PREVIOUS_ACTION,1,R.drawable.lumen_pip_previous,"Предыдущая серия",canChangeEpisode(-1)),play,
+            action(PIP_NEXT_ACTION,2,R.drawable.lumen_pip_next,"Следующая серия",canChangeEpisode(1))) else listOf(play)
+        val params=PictureInPictureParams.Builder().setAspectRatio(Rational((ratio*1000).toInt(),1000)).setActions(actions)
+        val rect=Rect()
+        if(::surface.isInitialized && surface.getGlobalVisibleRect(rect) && !rect.isEmpty) params.setSourceRectHint(rect)
+        if(Build.VERSION.SDK_INT>=31) params.setAutoEnterEnabled(::player.isInitialized && !released && player.playWhenReady && player.playbackState!=Player.STATE_ENDED && pipAllowed()).setSeamlessResizeEnabled(true)
+        return params.build()
+    }
+    private fun updatePipParams() {
+        if(!pipSupported() || isFinishing || isDestroyed) return
+        runCatching {setPictureInPictureParams(pipParams())}
+    }
+    private fun enterPip(showErrors: Boolean): Boolean {
+        if(!pipSupported()) {if(showErrors) Toast.makeText(this,"Режим «Картинка в картинке» недоступен на этом устройстве",Toast.LENGTH_LONG).show();return false}
+        if(!pipAllowed()) {
+            if(showErrors) AlertDialog.Builder(this).setTitle("Картинка в картинке").setMessage("Разрешите LumenKot показывать видео поверх других приложений.")
+                .setPositiveButton("Открыть настройки") {_,_ ->runCatching {startActivity(Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS",Uri.parse("package:$packageName")))}}
+                .setNegativeButton("Отмена",null).show()
+            return false
+        }
+        root.resetGesture();setTemporarySpeed(false)
+        return runCatching {enterPictureInPictureMode(pipParams())}.getOrElse {
+            if(showErrors) Toast.makeText(this,"Не удалось включить «Картинку в картинке». Проверьте разрешение в настройках приложения.",Toast.LENGTH_LONG).show()
+            false
+        }
+    }
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if(Build.VERSION.SDK_INT in 26..30 && ::player.isInitialized && !released && player.playWhenReady) enterPip(false)
+    }
+    override fun onPictureInPictureRequested(): Boolean = enterPip(false)
+    override fun onResume() {super.onResume();updatePipParams()}
+    override fun onPause() {if(::root.isInitialized) root.resetGesture();setTemporarySpeed(false);super.onPause()}
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean,newConfig: android.content.res.Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode,newConfig)
-        if(::surface.isInitialized) { surface.useController=!isInPictureInPictureMode;toolbar.visibility=if(isInPictureInPictureMode) View.GONE else View.VISIBLE }
-    }
-    override fun onStop() {
-        progressJob?.cancel();infoJob?.cancel()
-        if(::player.isInitialized && !released) {
-            position=player.currentPosition;playing=player.playWhenReady;settings.prefs.edit().putLong(key,position).apply()
-            if(data.optString("film").isNotBlank() && api.cookies.signedIn()) {
-                val fields=mapOf("post_id" to data.optString("film"),"translator_id" to data.optString("voice"),"season" to data.optString("season").ifBlank { "0" },"episode" to data.optString("episode").ifBlank { "0" },"current_time" to "${(position/1000).coerceAtLeast(1)}")
-                lifecycleScope.launch { withContext(Dispatchers.IO) { runCatching { api.json("/ajax/send_save",fields) } } }
+        if(::surface.isInitialized) {
+            surface.useController=!isInPictureInPictureMode
+            toolbar.visibility=if(isInPictureInPictureMode) View.GONE else View.VISIBLE
+            if(isInPictureInPictureMode) {
+                setTemporarySpeed(false);root.resetGesture();root.removeCallbacks(hideSeek);hideSeek.run();root.removeCallbacks(hideSwipe);hideSwipe.run();surface.hideController()
+                window.attributes=window.attributes.apply {screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE}
             }
+            else {window.attributes=window.attributes.apply {screenBrightness=customBrightness};surface.showController();toolbar.visibility=View.VISIBLE}
+        }
+    }
+    private fun saveProgress() {
+        if(!::player.isInitialized || released || (player.duration<=0 && player.currentPosition<=0)) return
+        val at=player.currentPosition
+        settings.prefs.edit().putLong(key,at).apply()
+        val film=data.optString("film")
+        WatchProgress(settings.prefs).record(film,data.optString("voice"),data.optString("season"),data.optString("episode"),at)
+        WatchProgress.saveToWebsite(api,film,data.optString("voice"),data.optString("season"),data.optString("episode"),at)
+    }
+    private fun releasePlayback() {
+        progressJob?.cancel();infoJob?.cancel();episodeJob?.cancel();switchingEpisode=false
+        if(::root.isInitialized) {root.resetGesture();root.removeCallbacks(hideSeek);root.removeCallbacks(hideSwipe);hideSwipe.run()}
+        setTemporarySpeed(false)
+        if(::player.isInitialized && !released) {
+            saveProgress();position=player.currentPosition;playing=player.playWhenReady
             released=true;surface.player=null;player.release()
         }
+    }
+    override fun onStop() {
+        // Some devices stop the Activity during the PiP transition; the visible mini-player must survive.
+        if(Build.VERSION.SDK_INT>=26 && isInPictureInPictureMode && !isFinishing) saveProgress() else releasePlayback()
         super.onStop()
+    }
+    override fun onDestroy() {
+        releasePlayback()
+        if(receiverRegistered) {unregisterReceiver(pipReceiver);receiverRegistered=false}
+        super.onDestroy()
     }
     override fun onKeyDown(keyCode: Int,event: KeyEvent): Boolean {
         if(::player.isInitialized && !released && !controlsLocked && event.action==KeyEvent.ACTION_DOWN) {
             when(event.keyCode) {
                 KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> { if(player.isPlaying) player.pause() else player.play();return true }
-                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { player.seekForward();return true }
-                KeyEvent.KEYCODE_MEDIA_REWIND -> { player.seekBack();return true }
+                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { seekVideo(true);return true }
+                KeyEvent.KEYCODE_MEDIA_REWIND -> { seekVideo(false);return true }
             }
         }
         return super.onKeyDown(keyCode,event)

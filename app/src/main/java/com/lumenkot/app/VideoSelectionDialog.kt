@@ -21,11 +21,13 @@ class VideoSelectionDialog(
     private lateinit var voices: Spinner
     private lateinit var seasonsView: LinearLayout
     private lateinit var episodesView: LinearLayout
+    private lateinit var divider: View
     private lateinit var choices: LinearLayout
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar
     private lateinit var retry: Button
-    private var voice=film.voices.firstOrNull { it.active } ?: film.voices.first()
+    private val saved=WatchProgress(api.settings.prefs).last(film.card.id)
+    private var voice=film.voices.firstOrNull {it.id==saved?.voice} ?: film.voices.firstOrNull {it.active} ?: film.voices.first()
     private var seasons=emptyList<Season>()
     private var season: Season?=null
     private var episode: Episode?=null
@@ -38,7 +40,7 @@ class VideoSelectionDialog(
     private fun dp(n: Int)=(n*activity.resources.displayMetrics.density).toInt()
     private fun rounded(color: String,radius: Int=16)=GradientDrawable().apply {setColor(Color.parseColor(color));cornerRadius=dp(radius).toFloat()}
     private fun chip(label: String,selected: Boolean,action: ()->Unit)=Button(activity).apply {
-        text=label;isAllCaps=false;textSize=14f;minHeight=0;minimumHeight=0;minWidth=0;minimumWidth=0
+        text=label;isAllCaps=false;isSelected=selected;textSize=14f;minHeight=0;minimumHeight=0;minWidth=0;minimumWidth=0
         setPadding(dp(8),dp(8),dp(8),dp(8));elevation=0f;stateListAnimator=null
         setTextColor(if(selected) Color.parseColor(if(light) "#3D1800" else "#C2E7FF") else this@VideoSelectionDialog.foreground)
         background=rounded(if(selected) (if(light) "#4A9DD9" else "#004A77") else (if(light) "#BABABA" else "#5B5B5B"))
@@ -58,6 +60,8 @@ class VideoSelectionDialog(
         val scroll=ScrollView(activity)
         choices=LinearLayout(activity).apply {orientation=LinearLayout.VERTICAL}
         seasonsView=LinearLayout(activity).apply {orientation=LinearLayout.VERTICAL};choices.addView(seasonsView)
+        divider=View(activity).apply {id=R.id.season_episode_divider;setBackgroundColor(Color.parseColor(if(light) "#B1B1B1" else "#4E4E4E"));visibility=View.GONE}
+        choices.addView(divider,LinearLayout.LayoutParams(-1,dp(2)).apply {setMargins(0,dp(8),0,dp(8))})
         episodesView=LinearLayout(activity).apply {orientation=LinearLayout.VERTICAL};choices.addView(episodesView)
         scroll.addView(choices);content.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         progress=ProgressBar(activity);content.addView(progress)
@@ -88,12 +92,14 @@ class VideoSelectionDialog(
     private fun busy(value: Boolean) {loading=value;progress.visibility=if(value) View.VISIBLE else View.GONE;retry.isEnabled=!value;voices.isEnabled=!value}
     private fun loadSeasons() {
         job?.cancel();seasonsView.removeAllViews();episodesView.removeAllViews();season=null;episode=null;status.text="";retry.visibility=View.GONE;seasonFailure=false
-        busy(true)
+        divider.visibility=View.GONE;busy(true)
         job=scope.launch {
             try {
                 seasons=withContext(Dispatchers.IO) {api.seasons(film,voice)}
                 check(seasons.isNotEmpty() && seasons.any {it.episodes.isNotEmpty()}) {"Сервис не вернул серии для выбранного перевода"}
-                selectSeason(seasons.first {it.episodes.isNotEmpty()})
+                val selected=seasons.firstOrNull {s -> saved?.voice==voice.id && s.id==saved.season && s.episodes.any {it.id==saved.episode}}
+                    ?: seasons.firstOrNull {s ->s.episodes.any {it.active}} ?: seasons.first {it.episodes.isNotEmpty()}
+                selectSeason(selected,if(saved?.voice==voice.id && selected.id==saved.season) saved.episode else null)
             } catch(e: CancellationException) {throw e} catch(e: Exception) {seasonFailure=true;status.text=e.message?.takeIf {it.isNotBlank()} ?: "Не удалось получить серии";retry.visibility=View.VISIBLE} finally {if(isShowing) busy(false)}
         }
     }
@@ -107,9 +113,10 @@ class VideoSelectionDialog(
             parent.addView(row)
         }
     }
-    private fun selectSeason(s: Season) {
-        season=s;episode=s.episodes.firstOrNull()
+    private fun selectSeason(s: Season, preferredEpisode: String? = null) {
+        season=s;episode=s.episodes.firstOrNull {it.id==preferredEpisode} ?: s.episodes.firstOrNull {it.active} ?: s.episodes.firstOrNull()
         renderChips(seasonsView,seasons.map {it.title to (it.id==s.id)}) {selectSeason(seasons[it])}
+        divider.visibility=if(s.episodes.isNotEmpty()) View.VISIBLE else View.GONE
         renderEpisodes();status.text=""
     }
     private fun renderEpisodes() {

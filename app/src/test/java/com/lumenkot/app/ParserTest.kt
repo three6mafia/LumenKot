@@ -40,6 +40,13 @@ class ParserTest {
         val film=Parser.film("""<meta property="og:type" content="video.movie"><div class="b-post__title"><h1>Тест</h1></div><div id="user-favorites-holder" data-post_id="42"></div><script>initCDNMoviesEvents(42,0, {"id":42,"streams":"[720p]https://example.com/movie.mp4"});</script>""","/films/42-test.html")
         assertEquals("42",film.card.id);assertEquals("https://example.com/movie.mp4",film.direct!!.streams.single().url)
     }
+    @Test fun parsesActiveWebsiteEpisodeAndLazyPoster() {
+        val html="""<div class="b-post__title"><h1>Сериал</h1></div><div class="b-sidecover"><img src="placeholder.gif" data-src="//cdn.example/poster.jpg"></div><li class="b-simple_season__item" data-tab_id="3">Сезон 3</li><div id="simple-episodes-list-3"><li class="b-simple_episode__item active" data-episode_id="5">Серия 5</li></div>"""
+        val film=Parser.film(html,"/series/42-film.html")
+        assertEquals("//cdn.example/poster.jpg",film.card.image)
+        assertEquals("3",film.seasons.single().id);assertEquals("5",film.seasons.single().episodes.single().id)
+        assertTrue(film.seasons.single().episodes.single().active)
+    }
     @Test fun preservesOriginalServiceDefaults() {
         assertEquals("https://hdrzk.org",Links.official)
         assertEquals("https://rezka.ag",Links.providers.first())

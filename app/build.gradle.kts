@@ -7,8 +7,8 @@ android {
         minSdk = 24
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 2
-        versionName = "1.0.1-test"
+        versionCode = 3
+        versionName = "1.0.2-test"
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true

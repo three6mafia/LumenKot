@@ -132,6 +132,19 @@ class NativeRuntimeTest {
             assertEquals("/ajax/get_cdn_series/",mock.takeRequest().requestUrl!!.encodedPath)
         }
     }
+    @Test fun websiteSaveKeepsRealTimeAndDoesNotDependOnAnActivityScope() {
+        okhttp3.mockwebserver.MockWebServer().use {mock ->
+            mock.start();settings.provider=mock.url("/").toString().trimEnd('/')
+            mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody("""{"success":true}""").addHeader("Set-Cookie","dle_password=fixture; Path=/"))
+            val api=RezkaApi(settings);api.login("fixture","fixture");mock.takeRequest()
+            mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody("""{"success":false}"""))
+            WatchProgress.saveToWebsite(api,"42","7","3","5",65432)
+            val request=mock.takeRequest(10,java.util.concurrent.TimeUnit.SECONDS)!!
+            assertEquals("/ajax/send_save/",request.requestUrl!!.encodedPath)
+            val body=request.body.readUtf8()
+            assertTrue(body.contains("65"));assertTrue(body.contains("name=\"season\""));assertTrue(body.contains("name=\"episode\""))
+        }
+    }
     @Test fun cookiesPersistWithoutCrossingMirrors() {
         val api=RezkaApi(settings);api.login("fixture","fixture")
         assertTrue(RezkaApi(settings).cookies.signedIn())
