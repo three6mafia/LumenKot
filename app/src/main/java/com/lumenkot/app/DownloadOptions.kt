@@ -22,7 +22,7 @@ fun DownloadOptions(video: Video,episodes: List<DownloadEpisode>,rememberFolder:
     var subtitles by remember { mutableStateOf(initialSubtitles) }
     var remember by remember { mutableStateOf(rememberFolder) }
     var saved by remember { mutableStateOf(rememberFolder && savedFolder!=null) }
-    MaterialTheme(colorScheme=if(dark) darkColorScheme(primary=Color(0xffb5f36b),surface=Color(0xff1d251d)) else lightColorScheme(primary=Color(0xff326914),surface=Color(0xfffafcf7))) {
+    MaterialTheme(colorScheme=if(dark) darkColorScheme(primary=Color(0xffc2e7ff),surface=Color(0xff252525)) else lightColorScheme(primary=Color(0xff4a9dd9),surface=Color(0xffffffff))) {
         AlertDialog(onDismissRequest=dismiss,title={ Text("Скачать видео") },text={
             Column(Modifier.fillMaxWidth().heightIn(max=480.dp).verticalScroll(rememberScrollState())) {
                 Text("Формат")

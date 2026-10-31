@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.TextView
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -23,7 +24,7 @@ import org.robolectric.annotation.LooperMode
 @LooperMode(LooperMode.Mode.PAUSED)
 class ComposeNavigationTest {
     @get:Rule val compose=createEmptyComposeRule()
-    @Test fun preservesPreviousMenuAndSwitchesScreens() {
+    @Test fun bottomNavigationSwitchesToSearch() {
         val settings=Settings(ApplicationProvider.getApplicationContext())
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("<html></html>"));server.start()
@@ -34,16 +35,13 @@ class ComposeNavigationTest {
                     fun views(view: View): List<View> = listOf(view)+
                         if(view is ViewGroup) (0 until view.childCount).flatMap { views(view.getChildAt(it)) } else emptyList()
                     compose.waitForIdle()
-                    scenario.onActivity { activity ->
-                        val tree=views(activity.window.decorView)
-                        assertTrue(tree.filterIsInstance<TextView>().any { it.text.toString()=="LUMEN" })
-                        tree.filterIsInstance<Button>().first { it.text.toString()=="Поиск" }.performClick()
-                    }
+                    compose.onNodeWithContentDescription("Главная").assertExists()
+                    compose.onNodeWithContentDescription("Поиск").performClick()
                     compose.waitForIdle()
                     scenario.onActivity { activity ->
                         val tree=views(activity.window.decorView)
                         assertTrue(tree.any { it is AutoCompleteTextView })
-                        assertTrue(tree.filterIsInstance<Button>().any { it.text.toString()=="Загрузки" })
+                        assertTrue(tree.any { it is AutoCompleteTextView })
                     }
                 }
             } finally { settings.prefs.edit().clear().commit() }

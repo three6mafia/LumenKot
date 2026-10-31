@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.TextView
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -40,14 +41,14 @@ class LiveSearchTest {
                 ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                     fun views(v: View): List<View> = listOf(v)+if(v is ViewGroup) (0 until v.childCount).flatMap { views(v.getChildAt(it)) } else emptyList()
                     compose.waitForIdle()
-                    scenario.onActivity { views(it.window.decorView).filterIsInstance<Button>().first { it.text.toString()=="Поиск" }.performClick() }
+                    compose.onNodeWithContentDescription("Поиск").performClick()
                     compose.waitForIdle()
                     scenario.onActivity { views(it.window.decorView).filterIsInstance<AutoCompleteTextView>().single().setText("Гарри Поттер") }
                     org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(400))
                     try { compose.waitUntil(10000) {
                         compose.waitForIdle()
                         var found=false
-                        scenario.onActivity { activity -> found=views(activity.window.decorView).filterIsInstance<TextView>().any { it.text.toString()=="Гарри Поттер · результат" } }
+                        found=compose.onAllNodesWithText("Гарри Поттер · результат").fetchSemanticsNodes().isNotEmpty()
                         org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(100))
                         found
                     }
@@ -59,7 +60,7 @@ class LiveSearchTest {
                     assertTrue(queries.contains("Гарри Поттер"))
                     scenario.onActivity { views(it.window.decorView).filterIsInstance<AutoCompleteTextView>().single().setText("") }
                     compose.waitForIdle()
-                    scenario.onActivity { assertFalse(views(it.window.decorView).filterIsInstance<TextView>().any { it.text.toString().contains("· результат") }) }
+                    compose.onNodeWithText("Гарри Поттер · результат").assertDoesNotExist()
                 }
             } finally { settings.prefs.edit().clear().commit() }
         }

@@ -42,10 +42,10 @@ class MainActivity : ComponentActivity() {
     private var current: (() -> Unit)? = null
     private var generation = 0
     private val light: Boolean get() = when(settings.prefs.getString("theme","system")) { "light" -> true; "dark" -> false;else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)!=Configuration.UI_MODE_NIGHT_YES }
-    private val foreground get() = if(light) Color.rgb(23,33,23) else Color.WHITE
-    private val accent get() = if(light) Color.rgb(50,105,20) else Color.rgb(181,243,107)
-    private val muted get() = if(light) Color.rgb(75,91,75) else Color.rgb(163,174,161)
-    private val tileBase get() = if(light) Color.rgb(236,242,232) else Color.rgb(29,37,29)
+    private val foreground get() = if(light) Color.rgb(28,28,28) else Color.rgb(227,227,227)
+    private val accent get() = if(light) Color.rgb(74,157,217) else Color.rgb(194,231,255)
+    private val muted get() = if(light) Color.rgb(59,56,56) else Color.rgb(196,199,197)
+    private val tileBase get() = if(light) Color.rgb(218,218,218) else Color.rgb(37,37,37)
     private val tileFocus get() = if(light) Color.rgb(214,236,193) else Color.rgb(54,73,42)
     private val downloadFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if(uri!=null) {
@@ -74,31 +74,38 @@ class MainActivity : ComponentActivity() {
     }
     private fun panel() = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(12),dp(8),dp(12),dp(12)) }
     private fun button(label: String, action: () -> Unit) = Button(this).apply {
-        text=label; isAllCaps=false; minHeight=dp(48); setTextColor(this@MainActivity.foreground)
+        text=label; isAllCaps=false; minHeight=dp(48); minimumWidth=0;minWidth=0;setPadding(dp(12),dp(8),dp(12),dp(8)); setTextColor(this@MainActivity.foreground)
+        background=GradientDrawable().apply { setColor(if(light) Color.rgb(199,199,199) else Color.rgb(56,56,56));cornerRadius=dp(8).toFloat() }
+        layoutParams=LinearLayout.LayoutParams(-1,-2).apply { setMargins(dp(4),dp(4),dp(4),dp(4)) }
         setOnClickListener { action() }; setOnFocusChangeListener { _, focused -> setTextColor(if(focused) accent else this@MainActivity.foreground) }
     }
-    private fun row(vararg views: View) = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; views.forEach { addView(it) } }
+    private fun row(vararg views: View) = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; views.forEach { if(it is Button) it.layoutParams.width=-2;addView(it) } }
     private fun horizontal(content: LinearLayout): HorizontalScrollView = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled=false; addView(content) }
     private fun page(title: String, action: () -> Unit, remember: Boolean = true) {
         if(remember) current?.let { back.addLast(it) }
         current=action; action()
     }
+    private var selectedTab=0
+    private fun navigateTab(index: Int) {
+        selectedTab=index;back.clear();current=null
+        when(index) { 0 -> home();1 -> search();2 -> bookmarks();3 -> history();else -> account() }
+    }
+    private fun composeBlock(content: @androidx.compose.runtime.Composable ()->Unit)=androidx.compose.ui.platform.ComposeView(this).apply {
+        id=View.generateViewId()
+        setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+        setContent(content)
+    }
     private fun shell(title: String) {
-        liveSearchJob?.cancel()
-        generation++
-        val root=panel().apply { setPadding(dp(12),0,dp(12),0); setBackgroundColor(if(light) Color.rgb(250,252,247) else Color.rgb(16,21,16)) }
-        val brand = text("LUMEN",22f,accent).apply { setTypeface(null,Typeface.BOLD); letterSpacing=.14f }
-        val nav=row(button("‹") { onBackPressedDispatcher.onBackPressed() },brand)
-        root.addView(nav)
-        val menu=row(button("Главная") { home() },button("Поиск") { search() },button("Каталог") { categories() },button("Подборки") { collections() },button("Закладки") { bookmarks() },button("История") { history() },button("Загрузки") { downloads() },button("Уведомления") { notifications() },button("Аккаунт") { account() },button("Настройки") { preferences() })
-        root.addView(horizontal(menu))
-        heading=text(title,26f).apply { setTypeface(null,Typeface.BOLD) }; root.addView(heading)
+        liveSearchJob?.cancel();generation++
         body=panel()
-        root.addView(ScrollView(this).apply { isFillViewport=true; addView(body) },LinearLayout.LayoutParams(-1,0,1f))
+        heading=text(title,20f)
+        val scroll=ScrollView(this).apply { isFillViewport=true;isVerticalScrollBarEnabled=false;addView(body) }
+        val tabs=listOf("Главная" to "home","Поиск" to "search","Закладки" to "bookmarks","История" to "history","Аккаунт" to "account")
+            .mapIndexed { index,pair -> LumenTab(pair.first,pair.second) { navigateTab(index) } }
         setContent {
-            Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-                androidx.compose.runtime.key(root) { AndroidView(factory={ root },modifier=Modifier.fillMaxSize()) }
-            }
+            LumenScaffold(title,title=="Смотреть сегодня",!light,
+                (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK)==Configuration.UI_MODE_TYPE_TELEVISION,
+                selectedTab,tabs,scroll) { onBackPressedDispatcher.onBackPressed() }
         }
     }
     private fun <T> load(work: () -> T, done: (T) -> Unit) {
@@ -123,57 +130,28 @@ class MainActivity : ComponentActivity() {
             id=View.generateViewId()
             setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
             setContent {
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    val columns=if(settings.prefs.contains("columns")) settings.prefs.getInt("columns",2).coerceIn(2,8)
-                        else if(maxWidth>=androidx.compose.ui.unit.Dp(960f)) 6 else if(maxWidth>=androidx.compose.ui.unit.Dp(600f)) 4 else 2
-                    Column(Modifier.fillMaxWidth()) {
-                        items.chunked(columns).forEach { chunk ->
-                            Row(Modifier.fillMaxWidth()) {
-                                chunk.forEach { card ->
-                                    androidx.compose.runtime.key(card.url,columns) {
-                                        AndroidView(factory={ cardView(card,columns,open) },modifier=Modifier.weight(1f).padding(androidx.compose.ui.unit.Dp(4f)))
-                                    }
-                                }
-                                repeat(columns-chunk.size) { Spacer(Modifier.weight(1f)) }
-                            }
-                        }
-                    }
-                }
+                CatalogGrid(items,if(settings.prefs.contains("columns")) settings.prefs.getInt("columns",2) else null,
+                    androidx.compose.ui.graphics.Color(this@MainActivity.foreground),androidx.compose.ui.graphics.Color(muted),androidx.compose.ui.graphics.Color(tileBase),
+                    load={ card -> withContext(Dispatchers.IO) {
+                        runCatching {
+                            val url=if(card.image.startsWith("http")) card.image else if(card.image.startsWith("//")) "https:${card.image}" else Links.static+"/"+card.image.trimStart('/')
+                            api.client.newCall(okhttp3.Request.Builder().url(url).build()).execute().use { response -> response.body?.byteStream()?.use { android.graphics.BitmapFactory.decodeStream(it) } }
+                        }.getOrNull()
+                    } },open=open)
             }
         })
     }
-    private fun cardView(card: Card,columns: Int,open: (Card)->Unit): View {
-        val tile=panel().apply {
-            isFocusable=true; isClickable=true; contentDescription=card.title + ". " + card.info
-            background=GradientDrawable().apply { setColor(tileBase); cornerRadius=dp(12).toFloat() }
-            setOnClickListener { open(card) }
-            setOnFocusChangeListener { _,focus -> background=GradientDrawable().apply { setColor(if(focus) tileFocus else tileBase); cornerRadius=dp(12).toFloat(); if(focus) setStroke(dp(2),accent) } }
-        }
-        if(card.image.isNotBlank()) {
-            val image=ImageView(this).apply { scaleType=ImageView.ScaleType.CENTER_CROP; importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO }
-            tile.addView(image,LinearLayout.LayoutParams(-1,dp(if(columns>=4) 180 else 210)))
-            lifecycleScope.launch {
-                val bitmap=withContext(Dispatchers.IO) { runCatching {
-                    val u=if(card.image.startsWith("http")) card.image else if(card.image.startsWith("//")) "https:${card.image}" else Links.static+"/"+card.image.trimStart('/')
-                    api.client.newCall(okhttp3.Request.Builder().url(u).build()).execute().use { r -> if(r.isSuccessful) r.body?.byteStream()?.use { android.graphics.BitmapFactory.decodeStream(it) } else null }
-                }.getOrNull() }
-                if(image.isAttachedToWindow) image.setImageBitmap(bitmap)
-            }
-        }
-        tile.addView(text(card.title,17f).apply { setTypeface(null,Typeface.BOLD); maxLines=3 })
-        tile.addView(text(card.info,13f,muted).apply { maxLines=3 })
-        return tile
-    }
     private fun pagination(page: Int, pages: Int, target: LinearLayout = body, go: (Int) -> Unit) {
-        val controls=row(); if(page>1) controls.addView(button("← Назад") { go(page-1) })
-        controls.addView(text("$page / $pages",14f,muted)); if(page<pages) controls.addView(button("Дальше →") { go(page+1) }); target.addView(controls)
+        val controls=row(); if(page>1) controls.addView(button("← Назад") { go(page-1) }.apply { layoutParams.width=-2 })
+        controls.addView(text("$page / $pages",14f,muted)); if(page<pages) controls.addView(button("Дальше →") { go(page+1) }.apply { layoutParams.width=-2 }); target.addView(controls)
     }
     private fun home(page: Int = 1, section: Int = 1, genre: String = "", remember: Boolean = true) {
         page("Главная", {
             shell("Смотреть сегодня")
             val names=listOf("Горячие новинки","Новинки","Сейчас смотрят","Популярные","В ожидании")
-            body.addView(horizontal(row(*names.mapIndexed { i,n -> button(if(i==section) "• $n" else n) { home(1,i,genre,false) } }.toTypedArray())))
-            body.addView(horizontal(row(*listOf("Все" to "","Фильмы" to "1","Сериалы" to "2","Мультфильмы" to "3","Аниме" to "82").map { (name,id) -> button(name) { home(1,section,id,false) } }.toTypedArray())))
+            body.addView(composeBlock { LumenFilters(names,section,!light) { home(1,it,genre,false) } })
+            val genres=listOf("Все" to "","Фильмы" to "1","Сериалы" to "2","Мультфильмы" to "3","Аниме" to "82")
+            body.addView(composeBlock { LumenFilters(genres.map { it.first },genres.indexOfFirst { it.second==genre }.coerceAtLeast(0),!light) { home(1,section,genres[it].second,false) } })
             load({ if(section==0) api.hot(genre.ifBlank { "0" }) else api.catalog(if(section==4) "/announce" else "/new",page,if(section==2) "watching" else if(section==3) "popular" else "",genre) }) {
                 cards(it.cards); pagination(page,it.pages) { n -> home(n,section,genre,false) }
             }
@@ -259,7 +237,7 @@ class MainActivity : ComponentActivity() {
         page("Фильм", {
             shell("Загрузка фильма")
             load({ api.film(url) }) { f ->
-                heading.text=f.card.title; note(f.original);note(f.info);body.addView(text(f.description));if(f.restricted.isNotBlank()) note(f.restricted)
+                body.addView(text(f.card.title,24f)); note(f.original);note(f.info);body.addView(text(f.description));if(f.restricted.isNotBlank()) note(f.restricted)
                 val controls=row(button("▶ Смотреть") { chooseVoice(f,false) },button("↓ Скачать") { chooseVoice(f,true) },button("Закладка") {
                     if(f.bookmarks.isEmpty()) toast("Войдите в аккаунт для закладок") else select("Добавить / убрать закладку",f.bookmarks.map { it.title }) { i -> load({ api.bookmark(f.card.id,f.bookmarks[i].id) }) { toast("Закладка обновлена") } }
                 },button("Поделиться") { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,(if(settings.official) settings.shareLink else settings.provider)+Uri.parse(api.absolute(f.card.url)).encodedPath),"Поделиться")) })
@@ -398,6 +376,11 @@ class MainActivity : ComponentActivity() {
     private fun account() {
         page("Аккаунт", {
             shell("Аккаунт")
+            body.addView(button("Настройки") { preferences() })
+            body.addView(button("Загрузки") { downloads() })
+            body.addView(button("Уведомления") { notifications() })
+            body.addView(button("Каталог") { categories() })
+            body.addView(button("Подборки") { collections() })
             if(api.cookies.signedIn()) {
                 load({ api.profile() }) { body.addView(text(it,20f)) }
                 body.addView(button("Выйти") { api.cookies.clear(); current?.invoke() })
