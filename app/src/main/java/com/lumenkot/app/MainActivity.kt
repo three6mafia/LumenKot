@@ -20,16 +20,19 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.*
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.ArrayDeque
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class MainActivity : ComponentActivity() {
     private lateinit var settings: Settings
     private lateinit var api: RezkaApi
@@ -44,6 +47,7 @@ class MainActivity : ComponentActivity() {
     private val muted get() = if(light) Color.rgb(75,91,75) else Color.rgb(163,174,161)
     private val tileBase get() = if(light) Color.rgb(236,242,232) else Color.rgb(29,37,29)
     private val tileFocus get() = if(light) Color.rgb(214,236,193) else Color.rgb(54,73,42)
+    private val downloadNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { search(it) }
     }
@@ -57,10 +61,6 @@ class MainActivity : ComponentActivity() {
         })
         home()
         intent.data?.let { openLink(it.toString()) }
-    }
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        current?.invoke()
     }
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun text(value: String, size: Float = 16f, color: Int = foreground) = TextView(this).apply {
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
     }
     private fun shell(title: String) {
         generation++
-        val root=panel().apply { setBackgroundColor(if(light) Color.rgb(250,252,247) else Color.rgb(16,21,16)) }
+        val root=panel().apply { setPadding(dp(12),0,dp(12),0); setBackgroundColor(if(light) Color.rgb(250,252,247) else Color.rgb(16,21,16)) }
         val brand = text("LUMEN",22f,accent).apply { setTypeface(null,Typeface.BOLD); letterSpacing=.14f }
         val nav=row(button("‹") { onBackPressedDispatcher.onBackPressed() },brand)
         root.addView(nav)
@@ -88,8 +88,11 @@ class MainActivity : ComponentActivity() {
         heading=text(title,26f).apply { setTypeface(null,Typeface.BOLD) }; root.addView(heading)
         body=panel()
         root.addView(ScrollView(this).apply { isFillViewport=true; addView(body) },LinearLayout.LayoutParams(-1,0,1f))
-        setContentView(root)
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v,insets -> val i=insets.getInsets(WindowInsetsCompat.Type.systemBars());v.setPadding(dp(12)+i.left,i.top,dp(12)+i.right,i.bottom);insets }
+        setContent {
+            Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+                androidx.compose.runtime.key(root) { AndroidView(factory={ root },modifier=Modifier.fillMaxSize()) }
+            }
+        }
     }
     private fun <T> load(work: () -> T, done: (T) -> Unit) {
         val screen=generation
@@ -109,36 +112,50 @@ class MainActivity : ComponentActivity() {
     private fun note(value: String) { body.addView(text(value,15f,muted)) }
     private fun cards(items: List<Card>, open: (Card) -> Unit = { film(it.url) }) {
         if(items.isEmpty()) { note("Ничего не найдено"); return }
-        val columns=settings.prefs.getInt("columns",if(resources.configuration.screenWidthDp >= 960) 6 else if(resources.configuration.screenWidthDp >= 600) 4 else 2).coerceIn(2,8)
-        val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
-        items.chunked(columns).forEach { chunk ->
-            val line=LinearLayout(this)
-            chunk.forEach { card ->
-                val tile=panel().apply {
-                    isFocusable=true; isClickable=true; contentDescription=card.title + ". " + card.info
-                    background=GradientDrawable().apply { setColor(tileBase); cornerRadius=dp(12).toFloat() }
-                    setOnClickListener { open(card) }
-                    setOnFocusChangeListener { _,focus -> background=GradientDrawable().apply { setColor(if(focus) tileFocus else tileBase); cornerRadius=dp(12).toFloat(); if(focus) setStroke(dp(2),accent) } }
-                }
-                if(card.image.isNotBlank()) {
-                    val image=ImageView(this).apply { scaleType=ImageView.ScaleType.CENTER_CROP; importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO }
-                    tile.addView(image,LinearLayout.LayoutParams(-1,dp(if(columns>=4) 180 else 210)))
-                    lifecycleScope.launch {
-                        val bitmap=withContext(Dispatchers.IO) { runCatching {
-                            val u=if(card.image.startsWith("http")) card.image else if(card.image.startsWith("//")) "https:${card.image}" else Links.static+"/"+card.image.trimStart('/')
-                            api.client.newCall(okhttp3.Request.Builder().url(u).build()).execute().use { r -> if(r.isSuccessful) r.body?.byteStream()?.use { android.graphics.BitmapFactory.decodeStream(it) } else null }
-                        }.getOrNull() }
-                        if(image.isAttachedToWindow) image.setImageBitmap(bitmap)
+        body.addView(androidx.compose.ui.platform.ComposeView(this).apply {
+            id=View.generateViewId()
+            setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+            setContent {
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val columns=if(settings.prefs.contains("columns")) settings.prefs.getInt("columns",2).coerceIn(2,8)
+                        else if(maxWidth>=androidx.compose.ui.unit.Dp(960f)) 6 else if(maxWidth>=androidx.compose.ui.unit.Dp(600f)) 4 else 2
+                    Column(Modifier.fillMaxWidth()) {
+                        items.chunked(columns).forEach { chunk ->
+                            Row(Modifier.fillMaxWidth()) {
+                                chunk.forEach { card ->
+                                    androidx.compose.runtime.key(card.url,columns) {
+                                        AndroidView(factory={ cardView(card,columns,open) },modifier=Modifier.weight(1f).padding(androidx.compose.ui.unit.Dp(4f)))
+                                    }
+                                }
+                                repeat(columns-chunk.size) { Spacer(Modifier.weight(1f)) }
+                            }
+                        }
                     }
                 }
-                tile.addView(text(card.title,17f).apply { setTypeface(null,Typeface.BOLD); maxLines=3 })
-                tile.addView(text(card.info,13f,muted).apply { maxLines=3 })
-                line.addView(tile,LinearLayout.LayoutParams(0,-2,1f).apply { setMargins(dp(4),dp(4),dp(4),dp(4)) })
             }
-            repeat(columns-chunk.size) { line.addView(View(this),LinearLayout.LayoutParams(0,1,1f)) }
-            grid.addView(line)
+        })
+    }
+    private fun cardView(card: Card,columns: Int,open: (Card)->Unit): View {
+        val tile=panel().apply {
+            isFocusable=true; isClickable=true; contentDescription=card.title + ". " + card.info
+            background=GradientDrawable().apply { setColor(tileBase); cornerRadius=dp(12).toFloat() }
+            setOnClickListener { open(card) }
+            setOnFocusChangeListener { _,focus -> background=GradientDrawable().apply { setColor(if(focus) tileFocus else tileBase); cornerRadius=dp(12).toFloat(); if(focus) setStroke(dp(2),accent) } }
         }
-        body.addView(grid)
+        if(card.image.isNotBlank()) {
+            val image=ImageView(this).apply { scaleType=ImageView.ScaleType.CENTER_CROP; importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO }
+            tile.addView(image,LinearLayout.LayoutParams(-1,dp(if(columns>=4) 180 else 210)))
+            lifecycleScope.launch {
+                val bitmap=withContext(Dispatchers.IO) { runCatching {
+                    val u=if(card.image.startsWith("http")) card.image else if(card.image.startsWith("//")) "https:${card.image}" else Links.static+"/"+card.image.trimStart('/')
+                    api.client.newCall(okhttp3.Request.Builder().url(u).build()).execute().use { r -> if(r.isSuccessful) r.body?.byteStream()?.use { android.graphics.BitmapFactory.decodeStream(it) } else null }
+                }.getOrNull() }
+                if(image.isAttachedToWindow) image.setImageBitmap(bitmap)
+            }
+        }
+        tile.addView(text(card.title,17f).apply { setTypeface(null,Typeface.BOLD); maxLines=3 })
+        tile.addView(text(card.info,13f,muted).apply { maxLines=3 })
+        return tile
     }
     private fun pagination(page: Int, pages: Int, go: (Int) -> Unit) {
         val controls=row(); if(page>1) controls.addView(button("← Назад") { go(page-1) })
@@ -259,16 +276,12 @@ class MainActivity : ComponentActivity() {
             if(settings.prefs.getBoolean("saveQuality",true)) settings.prefs.edit().putString("quality",video.streams[i].quality).apply()
             done(i)
         }
-        val available=video.streams.indices.filter { !download || video.streams[it].format==StreamFormat.MP4 }
-        if(available.isEmpty()) { toast("MP4 для скачивания недоступен у этого источника");return }
-        val formats=available.map { video.streams[it].format }.distinct()
-        select(if(download) "Формат скачивания" else "Формат видео",formats.map { it.name }) { f ->
-            val indices=available.filter { video.streams[it].format==formats[f] }
-            if(download || settings.prefs.getBoolean("askQuality",false)) select("Качество",indices.map { video.streams[it].quality }) { chosen(indices[it]) }
-            else chosen(indices.firstOrNull { video.streams[it].quality==settings.prefs.getString("quality","") } ?: indices.last())
-        }
+        val available=video.streams.indices.filter { !download || video.streams[it].format in listOf(StreamFormat.MP4,StreamFormat.HLS) }
+        if(available.isEmpty()) { toast("Видео для скачивания недоступно у этого источника");return }
+        if(download || settings.prefs.getBoolean("askQuality",false))
+            select("Качество",available.map { video.streams[it].label }) { chosen(available[it]) }
+        else chosen(available.firstOrNull { video.streams[it].quality==settings.prefs.getString("quality","") } ?: available.last())
     }
-
     private fun select(title: String, options: List<String>, done: (Int) -> Unit) {
         if(options.isEmpty()) { toast("Нет доступных вариантов"); return }
         AlertDialog.Builder(this).setTitle(title).setItems(options.toTypedArray()) { _, i -> done(i) }.setNegativeButton("Отмена",null).show()
@@ -277,10 +290,10 @@ class MainActivity : ComponentActivity() {
         page("Комментарии", { shell("Комментарии · ${f.card.title}");load({ api.comments(f.card.id,n) }) { (items,pages) ->
             items.forEach { c ->
                 body.addView(text("${c.author} · ${c.date}",16f,accent))
-                body.addView(CommentView(this).apply {
-                    setTextColor(this@MainActivity.foreground); setLinkTextColor(accent); textSize=16f
-                    setComment(c.html,c.text,settings.endpoint)
-                    setPadding(dp(c.indent.coerceIn(0,4)*12),dp(4),0,dp(8))
+                body.addView(androidx.compose.ui.platform.ComposeView(this).apply {
+                    id=View.generateViewId()
+                    setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+                    setContent { CommentText(c,settings.endpoint,androidx.compose.ui.graphics.Color(this@MainActivity.foreground),androidx.compose.ui.graphics.Color(accent)) }
                 })
                 body.addView(button("♥ ${c.likes}") { load({ api.like(c.id) }) { toast("Отметок: $it") } })
             };pagination(n,pages) { comments(f,it,false) }
@@ -351,6 +364,13 @@ class MainActivity : ComponentActivity() {
         })
     }
     private fun enqueue(f: Film,stream: Stream,s: String,e: String,subtitles: List<Subtitle>) {
+        if(stream.format==StreamFormat.HLS) {
+            if(android.os.Build.VERSION.SDK_INT>=33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)
+                downloadNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            runCatching { OfflineDownloads.add(this,f.card.title+if(e.isNotBlank()) " S${s}E${e}" else "",stream) }
+                .onSuccess { toast("Загрузка HLS добавлена") }.onFailure { toast(it.message ?: "Ошибка загрузки") }
+            return
+        }
         if(stream.format!=StreamFormat.MP4) { toast("Для загрузки выберите MP4; HLS предназначен для просмотра");return }
         runCatching {
             val filename=(f.card.title+if(e.isNotBlank()) " S${s}E${e}" else "").replace(Regex("[^\\p{L}\\p{N} ._-]"),"_")+".mp4"
@@ -383,9 +403,28 @@ class MainActivity : ComponentActivity() {
     private fun downloads() {
         page("Загрузки", {
             shell("Загрузки");body.addView(button("Обновить") { current?.invoke() })
+            val hlsDownloads=OfflineDownloads.all(this)
+            hlsDownloads.forEach { download ->
+                val metadata=OfflineDownloads.media(download)
+                body.addView(text(metadata.optString("title"),19f))
+                note(when(download.state) {
+                    androidx.media3.exoplayer.offline.Download.STATE_COMPLETED -> "Готово · HLS"
+                    androidx.media3.exoplayer.offline.Download.STATE_FAILED -> "Ошибка загрузки HLS"
+                    androidx.media3.exoplayer.offline.Download.STATE_STOPPED -> "Приостановлена"
+                    androidx.media3.exoplayer.offline.Download.STATE_REMOVING -> "Удаление…"
+                    else -> if(download.percentDownloaded>=0) "${download.percentDownloaded.toInt()}% · HLS" else "Загрузка HLS…"
+                })
+                if(download.state==androidx.media3.exoplayer.offline.Download.STATE_COMPLETED)
+                    body.addView(button("▶ Открыть") { startActivity(Intent(this,PlayerActivity::class.java).putExtra("media",metadata.toString())) })
+                if(download.state==androidx.media3.exoplayer.offline.Download.STATE_FAILED)
+                    body.addView(button("Повторить") { OfflineDownloads.retry(this,download);current?.invoke() })
+                body.addView(button("Удалить") {
+                    AlertDialog.Builder(this).setMessage("Удалить загрузку и файл?").setPositiveButton("Удалить") { _,_ -> OfflineDownloads.remove(this,download.request.id);current?.invoke() }.setNegativeButton("Отмена",null).show()
+                })
+            }
             val manager=getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val ids=settings.prefs.getStringSet("downloads",emptySet())!!.mapNotNull { it.toLongOrNull() }
-            if(ids.isEmpty()) note("Загрузок пока нет. Откройте фильм и выберите «Скачать».")
+            if(ids.isEmpty() && hlsDownloads.isEmpty()) note("Загрузок пока нет. Откройте фильм и выберите «Скачать».")
             ids.forEach { id -> manager.query(DownloadManager.Query().setFilterById(id)).use { c ->
                 if(c.moveToFirst()) {
                     val title=c.getString(c.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE));val status=c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))

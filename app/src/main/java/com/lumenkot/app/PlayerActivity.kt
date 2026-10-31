@@ -11,10 +11,14 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -58,16 +62,15 @@ class PlayerActivity: ComponentActivity() {
         playing=savedInstanceState?.getBoolean("playing") ?: true
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if((resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK)!=android.content.res.Configuration.UI_MODE_TYPE_TELEVISION) requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        val root=FrameLayout(this)
         surface=PlayerView(this).apply { id=R.id.player_surface; setShowSubtitleButton(true);setShowNextButton(false);setShowPreviousButton(false);controllerShowTimeoutMs=5000;keepScreenOn=true }
-        root.addView(surface,FrameLayout.LayoutParams(-1,-1))
+
         toolbar=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL;setBackgroundColor(0x99000000.toInt());gravity=Gravity.END }
         fun control(label: String, action: () -> Unit) { toolbar.addView(Button(this).apply { text=label;isAllCaps=false;setOnClickListener { action() } }) }
         control("‹") { finish() }
-        control("Формат / качество") {
+        control("Качество") {
             val streams=data.optJSONArray("streams") ?: JSONArray()
             val labels=(0 until streams.length()).map { streams.getJSONObject(it).let { Stream(it.optString("quality"),it.optString("url")).label } }
-            AlertDialog.Builder(this).setTitle("Формат и качество").setItems(labels.toTypedArray()) { _,i ->
+            AlertDialog.Builder(this).setTitle("Качество").setItems(labels.toTypedArray()) { _,i ->
                 val at=player.currentPosition; val play=player.playWhenReady
                 data.put("url",streams.getJSONObject(i).getString("url")).put("quality",streams.getJSONObject(i).optString("quality"));if(settings.prefs.getBoolean("saveQuality",true)) settings.prefs.edit().putString("quality",data.optString("quality")).apply();player.setMediaItem(media(),at);player.prepare();player.playWhenReady=play
             }.show()
@@ -81,9 +84,15 @@ class PlayerActivity: ComponentActivity() {
         control("Экран") { surface.resizeMode=if(surface.resizeMode==androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT }
         control("PiP") { if(Build.VERSION.SDK_INT>=26 && packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) enterPictureInPictureMode(PictureInPictureParams.Builder().build()) }
         val toolbarScroll=android.widget.HorizontalScrollView(this).apply { addView(toolbar);isFillViewport=true }
-        root.addView(toolbarScroll,FrameLayout.LayoutParams(-1,-2,Gravity.TOP))
+
         surface.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { toolbarScroll.visibility=it })
-        setContentView(root)
+        setContent {
+            Box(Modifier.fillMaxSize()) {
+                AndroidView(factory={ surface },modifier=Modifier.fillMaxSize())
+                AndroidView(factory={ toolbarScroll },modifier=Modifier.align(Alignment.TopCenter)
+                    .fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top+WindowInsetsSides.Horizontal)))
+            }
+        }
         androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply { hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE }
     }
     private fun media(): MediaItem {
@@ -99,7 +108,7 @@ class PlayerActivity: ComponentActivity() {
         super.onStart()
         if(::data.isInitialized && ::surface.isInitialized) {
             val http=OkHttpDataSource.Factory(api.client).setDefaultRequestProperties(api.headers())
-            val sources=DefaultDataSource.Factory(this,http)
+            val sources: androidx.media3.datasource.DataSource.Factory=if(data.optBoolean("offlineHls")) OfflineDownloads.playback(this) else DefaultDataSource.Factory(this,http)
             player=ExoPlayer.Builder(this).setMediaSourceFactory(DefaultMediaSourceFactory(sources)).setSeekBackIncrementMs(settings.prefs.getInt("seekSeconds",10)*1000L).setSeekForwardIncrementMs(settings.prefs.getInt("seekSeconds",10)*1000L).build()
             released=false;surface.player=player
             player.addListener(object: Player.Listener {
