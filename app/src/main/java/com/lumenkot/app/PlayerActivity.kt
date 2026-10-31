@@ -64,10 +64,10 @@ class PlayerActivity: ComponentActivity() {
         toolbar=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL;setBackgroundColor(0x99000000.toInt());gravity=Gravity.END }
         fun control(label: String, action: () -> Unit) { toolbar.addView(Button(this).apply { text=label;isAllCaps=false;setOnClickListener { action() } }) }
         control("‹") { finish() }
-        control("Качество") {
+        control("Формат / качество") {
             val streams=data.optJSONArray("streams") ?: JSONArray()
-            val labels=(0 until streams.length()).map { streams.getJSONObject(it).optString("quality") }
-            AlertDialog.Builder(this).setTitle("Качество").setItems(labels.toTypedArray()) { _,i ->
+            val labels=(0 until streams.length()).map { streams.getJSONObject(it).let { Stream(it.optString("quality"),it.optString("url")).label } }
+            AlertDialog.Builder(this).setTitle("Формат и качество").setItems(labels.toTypedArray()) { _,i ->
                 val at=player.currentPosition; val play=player.playWhenReady
                 data.put("url",streams.getJSONObject(i).getString("url")).put("quality",streams.getJSONObject(i).optString("quality"));if(settings.prefs.getBoolean("saveQuality",true)) settings.prefs.edit().putString("quality",data.optString("quality")).apply();player.setMediaItem(media(),at);player.prepare();player.playWhenReady=play
             }.show()
@@ -80,8 +80,9 @@ class PlayerActivity: ComponentActivity() {
         }
         control("Экран") { surface.resizeMode=if(surface.resizeMode==androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT }
         control("PiP") { if(Build.VERSION.SDK_INT>=26 && packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) enterPictureInPictureMode(PictureInPictureParams.Builder().build()) }
-        root.addView(toolbar,FrameLayout.LayoutParams(-1,-2,Gravity.TOP))
-        surface.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { toolbar.visibility=it })
+        val toolbarScroll=android.widget.HorizontalScrollView(this).apply { addView(toolbar);isFillViewport=true }
+        root.addView(toolbarScroll,FrameLayout.LayoutParams(-1,-2,Gravity.TOP))
+        surface.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { toolbarScroll.visibility=it })
         setContentView(root)
         androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply { hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE }
     }
@@ -150,7 +151,9 @@ class PlayerActivity: ComponentActivity() {
                 val video=withContext(Dispatchers.IO) { val f=api.film(data.getString("filmUrl"));val voice=f.voices.firstOrNull { it.id==data.optString("voice") } ?: f.voices.first();api.video(f,voice,season,episode) }
                 require(video.streams.isNotEmpty()) { "Видео недоступно" }
                 settings.prefs.edit().putLong(key,player.currentPosition).apply()
-                val stream=video.streams.firstOrNull { it.quality==data.optString("quality") } ?: video.streams.last()
+                val format=Stream(data.optString("quality"),data.optString("url")).format
+                val candidates=video.streams.filter { it.format==format }.ifEmpty { video.streams }
+                val stream=candidates.firstOrNull { it.quality==data.optString("quality") } ?: candidates.last()
                 data.put("season",season).put("episode",episode).put("url",stream.url).put("quality",stream.quality)
                 data.put("streams",JSONArray(video.streams.map { JSONObject().put("quality",it.quality).put("url",it.url) }))
                 data.put("subtitles",JSONArray(video.subtitles.map { JSONObject().put("title",it.title).put("url",it.url).put("language",it.language).put("default",it.default) }))

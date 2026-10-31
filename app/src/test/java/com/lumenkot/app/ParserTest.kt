@@ -25,8 +25,17 @@ class ParserTest {
         val encrypted="#h"+b64.take(16)+"//_//"+trash+b64.drop(16)
         assertEquals(plain,StreamDecoder.decrypt(encrypted))
         val streams=Parser.streams(encrypted)
-        assertEquals(2,streams.size);assertEquals("https://stream.voidboost.cc/video.mp4",streams[0].url)
-        assertEquals("1080p",streams[1].quality)
+        assertEquals(3,streams.size);assertEquals("https://stream.voidboost.cc/video.mp4",streams[0].url)
+        assertEquals("1080p",streams[2].quality)
+    }
+    @Test fun keepsBothFormatsAndSignedUrls() {
+        val mp4="https://example.com/video.MP4?token=a%2Fb&expires=123"
+        val hls="https://example.com/video.m3u8?token=c%2Fd"
+        val streams=Parser.streams("[720p]$hls or $mp4,[1080p]https://example.com/full.mp4")
+        assertEquals(listOf(StreamFormat.HLS,StreamFormat.MP4,StreamFormat.MP4),streams.map { it.format })
+        assertEquals(mp4,streams[1].url)
+        assertEquals(hls,streams[0].url)
+        assertEquals("720p",streams[1].quality)
     }
     @Test fun parsesSubtitlesAndDefaultLanguage() {
         val video=Parser.video(JSONObject("""{"url":"[720p]https://example.com/video.mp4","subtitle":"[Русский]https://example.com/ru.vtt","subtitle_lns":{"Русский":"ru"},"subtitle_def":"ru"}"""))

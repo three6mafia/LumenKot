@@ -58,6 +58,10 @@ class MainActivity : ComponentActivity() {
         home()
         intent.data?.let { openLink(it.toString()) }
     }
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        current?.invoke()
+    }
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun text(value: String, size: Float = 16f, color: Int = foreground) = TextView(this).apply {
         text=value; textSize=size; setTextColor(color); setPadding(dp(4),dp(5),dp(4),dp(5))
@@ -255,12 +259,16 @@ class MainActivity : ComponentActivity() {
             if(settings.prefs.getBoolean("saveQuality",true)) settings.prefs.edit().putString("quality",video.streams[i].quality).apply()
             done(i)
         }
-        if(download || settings.prefs.getBoolean("askQuality",false)) select("Качество",video.streams.map { it.quality },::chosen)
-        else {
-            val index=video.streams.indexOfFirst { it.quality==settings.prefs.getString("quality","") }
-            chosen(if(index>=0) index else video.streams.lastIndex)
+        val available=video.streams.indices.filter { !download || video.streams[it].format==StreamFormat.MP4 }
+        if(available.isEmpty()) { toast("MP4 для скачивания недоступен у этого источника");return }
+        val formats=available.map { video.streams[it].format }.distinct()
+        select(if(download) "Формат скачивания" else "Формат видео",formats.map { it.name }) { f ->
+            val indices=available.filter { video.streams[it].format==formats[f] }
+            if(download || settings.prefs.getBoolean("askQuality",false)) select("Качество",indices.map { video.streams[it].quality }) { chosen(indices[it]) }
+            else chosen(indices.firstOrNull { video.streams[it].quality==settings.prefs.getString("quality","") } ?: indices.last())
         }
     }
+
     private fun select(title: String, options: List<String>, done: (Int) -> Unit) {
         if(options.isEmpty()) { toast("Нет доступных вариантов"); return }
         AlertDialog.Builder(this).setTitle(title).setItems(options.toTypedArray()) { _, i -> done(i) }.setNegativeButton("Отмена",null).show()
@@ -269,15 +277,11 @@ class MainActivity : ComponentActivity() {
         page("Комментарии", { shell("Комментарии · ${f.card.title}");load({ api.comments(f.card.id,n) }) { (items,pages) ->
             items.forEach { c ->
                 body.addView(text("${c.author} · ${c.date}",16f,accent))
-                val comment=text("").apply { movementMethod=android.text.method.LinkMovementMethod.getInstance() }
-                fun render(expanded: Boolean) {
-                    val fragment=org.jsoup.Jsoup.parseBodyFragment(c.html)
-                    fragment.select(".title_spoiler").remove()
-                    if(!expanded) fragment.select(".text_spoiler").forEach { it.text("[Спойлер скрыт]") }
-                    comment.text=if(c.html.isBlank()) c.text else android.text.Html.fromHtml(fragment.body().html(),android.text.Html.FROM_HTML_MODE_COMPACT)
-                }
-                render(false);body.addView(comment)
-                if(c.html.contains("text_spoiler")) { var expanded=false;body.addView(button("Показать / скрыть спойлер") { expanded=!expanded;render(expanded) }) }
+                body.addView(CommentView(this).apply {
+                    setTextColor(this@MainActivity.foreground); setLinkTextColor(accent); textSize=16f
+                    setComment(c.html,c.text,settings.endpoint)
+                    setPadding(dp(c.indent.coerceIn(0,4)*12),dp(4),0,dp(8))
+                })
                 body.addView(button("♥ ${c.likes}") { load({ api.like(c.id) }) { toast("Отметок: $it") } })
             };pagination(n,pages) { comments(f,it,false) }
         } },remember)
@@ -347,7 +351,7 @@ class MainActivity : ComponentActivity() {
         })
     }
     private fun enqueue(f: Film,stream: Stream,s: String,e: String,subtitles: List<Subtitle>) {
-        if(stream.url.contains(".m3u8")) { toast("Для загрузки выберите MP4; HLS предназначен для просмотра");return }
+        if(stream.format!=StreamFormat.MP4) { toast("Для загрузки выберите MP4; HLS предназначен для просмотра");return }
         runCatching {
             val filename=(f.card.title+if(e.isNotBlank()) " S${s}E${e}" else "").replace(Regex("[^\\p{L}\\p{N} ._-]"),"_")+".mp4"
             val folders=getExternalFilesDirs("downloads").filterNotNull()

@@ -137,7 +137,7 @@ class RezkaApi(val settings: Settings) {
     fun comments(id: String, page: Int): Pair<List<Comment>, Int> {
         val j = JSONObject(request("/ajax/get_comments",mapOf("t" to "${System.currentTimeMillis()}","news_id" to id,"cstart" to "$page","type" to "0","comment_id" to "0","skin" to "hdrezka")))
         val r = Jsoup.parse(j.optString("comments"))
-        return r.select(".comments-tree-item").map { Comment(it.attr("data-id"),it.selectFirst(".name")?.text().orEmpty(),it.selectFirst(".date")?.text().orEmpty(),it.selectFirst(".text div")?.text().orEmpty(),it.selectFirst(".b-comment__like_it")?.attr("data-likes_num").orEmpty(),it.attr("data-indent").toIntOrNull() ?: 0,it.selectFirst(".text div")?.html().orEmpty()) } to Parser.pages(Jsoup.parse(j.optString("navigation")))
+        return r.select(".comments-tree-item").map { Comment(it.attr("data-id"),it.selectFirst(".name")?.text().orEmpty(),it.selectFirst(".date")?.text().orEmpty(),it.selectFirst(".text")?.text().orEmpty(),it.selectFirst(".b-comment__like_it")?.attr("data-likes_num").orEmpty(),it.attr("data-indent").toIntOrNull() ?: 0,it.selectFirst(".text")?.html().orEmpty()) } to Parser.pages(Jsoup.parse(j.optString("navigation")))
     }
     fun saveScheduleWatch(id: String) { checked("/engine/ajax/schedule_watched.php",mapOf("id" to id)) }
     fun suggestions(query: String): List<String> = Jsoup.parse(request("/engine/ajax/search.php",mapOf("q" to query),true)).select("li .enty").map { it.text() }.distinct()
