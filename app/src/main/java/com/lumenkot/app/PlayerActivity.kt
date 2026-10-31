@@ -49,12 +49,15 @@ class PlayerActivity: ComponentActivity() {
     private var playing=true
     private var released=false
     private var progressJob: Job? = null
+    private var episodeJob: Job? = null
+    private var pipSession=false
     private lateinit var cloud: CloudProgress
     private lateinit var surface: PlayerView
     private lateinit var toolbar: LinearLayout
     private val key get() = "position:${data.optString("film",data.optString("url"))}:${data.optString("voice")}:${data.optString("season")}:${data.optString("episode")}"
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window,false)
         data=runCatching { JSONObject(intent.getStringExtra("media") ?: "{}") }.getOrElse { finish();return }
         if(data.optString("url").isBlank()) { finish();return }
         settings=Settings(this);api=RezkaApi(settings);cloud=CloudProgress(this,settings,api)
@@ -90,13 +93,36 @@ class PlayerActivity: ComponentActivity() {
             Box(Modifier.fillMaxSize()) {
                 AndroidView(factory={ surface },modifier=Modifier.fillMaxSize())
                 AndroidView(factory={ toolbarScroll },modifier=Modifier.align(Alignment.TopCenter)
-                    .fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top+WindowInsetsSides.Horizontal)))
+                    .fillMaxWidth().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top+WindowInsetsSides.Horizontal)))
             }
         }
-        androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply { hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE }
+        applyFullscreen()
+    }
+    private fun applyFullscreen() {
+        if(isFinishing || (Build.VERSION.SDK_INT>=26 && isInPictureInPictureMode)) return
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window,false)
+        androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply {
+            hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+        window.decorView.requestApplyInsets()
+        if(::surface.isInitialized) { surface.setPadding(0,0,0,0);surface.requestLayout() }
+    }
+    override fun onResume() {
+        super.onResume()
+        if(Build.VERSION.SDK_INT<26 || !isInPictureInPictureMode) { pipSession=false;applyFullscreen() }
+    }
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if(hasFocus) applyFullscreen()
+    }
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyFullscreen()
     }
     private fun media(): MediaItem {
         val b=MediaItem.Builder().setUri(data.getString("url")).setMediaId(key)
+        if(data.optString("mime").isNotBlank()) b.setMimeType(data.getString("mime"))
         val subtitles=data.optJSONArray("subtitles") ?: JSONArray()
         b.setSubtitleConfigurations((0 until subtitles.length()).map { i ->
             val s=subtitles.getJSONObject(i); val url=s.getString("url")
@@ -111,6 +137,8 @@ class PlayerActivity: ComponentActivity() {
             val sources: androidx.media3.datasource.DataSource.Factory=if(data.optBoolean("offlineHls")) OfflineDownloads.playback(this) else DefaultDataSource.Factory(this,http)
             player=ExoPlayer.Builder(this).setMediaSourceFactory(DefaultMediaSourceFactory(sources)).setSeekBackIncrementMs(settings.prefs.getInt("seekSeconds",10)*1000L).setSeekForwardIncrementMs(settings.prefs.getInt("seekSeconds",10)*1000L).build()
             released=false;surface.player=player
+            if(data.has("includeSubtitles")) player.trackSelectionParameters=player.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT,!data.optBoolean("includeSubtitles")).build()
             player.addListener(object: Player.Listener {
                 override fun onPlaybackStateChanged(state: Int) {
                     if(state==Player.STATE_ENDED && settings.prefs.getBoolean("autoNext",true)) nextEpisode()
@@ -155,9 +183,11 @@ class PlayerActivity: ComponentActivity() {
     private fun changeEpisode(season: String,episode: String) {
         if(data.optString("filmUrl").isBlank()) return
         val wasPlaying=player.playWhenReady;player.pause()
-        lifecycleScope.launch {
+        episodeJob?.cancel()
+        episodeJob=lifecycleScope.launch {
             try {
                 val video=withContext(Dispatchers.IO) { val f=api.film(data.getString("filmUrl"));val voice=f.voices.firstOrNull { it.id==data.optString("voice") } ?: f.voices.first();api.video(f,voice,season,episode) }
+                if(released) return@launch
                 require(video.streams.isNotEmpty()) { "Видео недоступно" }
                 settings.prefs.edit().putLong(key,player.currentPosition).apply()
                 val format=Stream(data.optString("quality"),data.optString("url")).format
@@ -166,7 +196,7 @@ class PlayerActivity: ComponentActivity() {
                 data.put("season",season).put("episode",episode).put("url",stream.url).put("quality",stream.quality)
                 data.put("streams",JSONArray(video.streams.map { JSONObject().put("quality",it.quality).put("url",it.url) }))
                 data.put("subtitles",JSONArray(video.subtitles.map { JSONObject().put("title",it.title).put("url",it.url).put("language",it.language).put("default",it.default) }))
-                player.setMediaItem(media());player.prepare();player.play()
+                player.setMediaItem(media());player.prepare();player.play();applyFullscreen()
             } catch(e: Exception) { if(e is kotlinx.coroutines.CancellationException) throw e;Toast.makeText(this@PlayerActivity,e.message ?: "Не удалось открыть серию",Toast.LENGTH_LONG).show();player.playWhenReady=wasPlaying }
         }
     }
@@ -176,10 +206,12 @@ class PlayerActivity: ComponentActivity() {
     }
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean,newConfig: android.content.res.Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode,newConfig)
+        if(isInPictureInPictureMode) pipSession=true else applyFullscreen()
         if(::surface.isInitialized) { surface.useController=!isInPictureInPictureMode;toolbar.visibility=if(isInPictureInPictureMode) View.GONE else View.VISIBLE }
     }
     override fun onStop() {
         progressJob?.cancel()
+        episodeJob?.cancel()
         if(::player.isInitialized && !released) {
             position=player.currentPosition;playing=player.playWhenReady;settings.prefs.edit().putLong(key,position).apply()
             if(data.optString("film").isNotBlank() && api.cookies.signedIn()) {
@@ -189,6 +221,14 @@ class PlayerActivity: ComponentActivity() {
             surface.player=null;player.release();released=true
         }
         super.onStop()
+        if(pipSession && !isChangingConfigurations && !(getSystemService(KEYGUARD_SERVICE) as android.app.KeyguardManager).isKeyguardLocked) {
+            // PlayerActivity is normally above MainActivity, so remove the matching whole app task.
+            val task=(getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).appTasks.firstOrNull {
+                val info=it.taskInfo
+                (if(Build.VERSION.SDK_INT>=29) info.taskId else info.id)==taskId
+            }
+            if(task!=null) task.finishAndRemoveTask() else finishAndRemoveTask()
+        }
     }
     override fun onKeyDown(keyCode: Int,event: KeyEvent): Boolean {
         if(::player.isInitialized && !released && event.action==KeyEvent.ACTION_DOWN) {

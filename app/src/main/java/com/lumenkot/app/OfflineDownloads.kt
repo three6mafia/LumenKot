@@ -33,12 +33,19 @@ object OfflineDownloads {
         val sources=source(app,false)
         val factory=DownloaderFactory { request ->
             // Use the standard segment downloader, never save only the m3u8 playlist.
-            HlsDownloader(request.toMediaItem(),sources,executor)
+            if(request.mimeType==MimeTypes.APPLICATION_M3U8) HlsDownloader(request.toMediaItem(),sources,executor)
+            else ProgressiveDownloader(request.toMediaItem(),sources,executor)
         }
         return DownloadManager(app,DefaultDownloadIndex(database),factory).also {
             it.maxParallelDownloads=2
             it.requirements=Requirements(Requirements.NETWORK)
             it.resumeDownloads()
+            it.addListener(object: DownloadManager.Listener {
+                override fun onDownloadChanged(manager: DownloadManager,download: Download,exception: Exception?) {
+                    if(download.state==Download.STATE_COMPLETED && JSONObject(download.request.data.toString(Charsets.UTF_8)).optString("tree").isNotBlank())
+                        DownloadExportWorker.schedule(app,download.request.id)
+                }
+            })
             instance=it
         }
     }
@@ -53,21 +60,50 @@ object OfflineDownloads {
         manager(context)
         return source(context,true)
     }
-    fun add(context: Context,title: String,stream: Stream) {
-        val request=DownloadRequest.Builder(java.util.UUID.randomUUID().toString(),Uri.parse(stream.url))
-            .setMimeType(MimeTypes.APPLICATION_M3U8)
-            .setData(JSONObject().put("title",title).put("quality",stream.quality).toString().toByteArray())
-            .build()
-        DownloadService.sendAddDownload(context,HlsDownloadService::class.java,request,true)
+    /** Called on an IO thread; URLs and track selections are preserved in the durable request. */
+    fun request(context: Context,metadata: JSONObject): DownloadRequest {
+        val url=metadata.getString("url")
+        val hls=metadata.getString("format")=="HLS"
+        val builder=DownloadRequest.Builder(java.util.UUID.randomUUID().toString(),Uri.parse(url))
+            .setMimeType(if(hls) MimeTypes.APPLICATION_M3U8 else MimeTypes.VIDEO_MP4)
+            .setData(metadata.toString().toByteArray())
+        if(hls && !metadata.optBoolean("includeSubtitles",true)) {
+            val api=RezkaApi(Settings(context))
+            val request=okhttp3.Request.Builder().url(url);api.headers().forEach { (k,v) -> request.header(k,v) }
+            api.client.newCall(request.build()).execute().use { response ->
+                check(response.isSuccessful) { "HLS: HTTP ${response.code}" }
+                val playlist=androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser().parse(Uri.parse(response.request.url.toString()),response.body!!.byteStream())
+                if(playlist is androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist) {
+                    builder.setStreamKeys(playlist.variants.indices.map { androidx.media3.common.StreamKey(0,it) }+
+                        playlist.audios.indices.map { androidx.media3.common.StreamKey(1,it) })
+                }
+            }
+        }
+        return builder.build()
     }
+    fun enqueue(context: Context,request: DownloadRequest) = DownloadService.sendAddDownload(context,HlsDownloadService::class.java,request,true)
     fun all(context: Context): List<Download> {
         val result=mutableListOf<Download>()
-        manager(context).downloadIndex.getDownloads().use { cursor -> while(cursor.moveToNext()) result.add(cursor.download) }
+        manager(context).downloadIndex.getDownloads().use { cursor -> while(cursor.moveToNext()) {
+            val download=cursor.download
+            result.add(download)
+            if(download.state==Download.STATE_COMPLETED && JSONObject(download.request.data.toString(Charsets.UTF_8)).optString("tree").isNotBlank()) {
+                val state=DownloadExportWorker.state(context,download.request.id)
+                if(!state.optBoolean("deleted") && state.optString("state") in listOf("","saving")) DownloadExportWorker.schedule(context,download.request.id)
+            }
+        } }
         return result
     }
     fun media(download: Download): JSONObject = JSONObject(download.request.data.toString(Charsets.UTF_8))
-        .put("url",download.request.uri.toString()).put("offlineHls",true)
-    fun remove(context: Context,id: String) = DownloadService.sendRemoveDownload(context,HlsDownloadService::class.java,id,true)
+        .put("url",download.request.uri.toString()).put("offlineHls",download.request.mimeType==MimeTypes.APPLICATION_M3U8)
+        .put("mime",download.request.mimeType)
+    fun remove(context: Context,id: String) {
+        DownloadExportWorker.cancel(context,id)
+        val state=DownloadExportWorker.markDeleted(context,id)
+        val folder=state.optString("folder")
+        if(folder.isNotBlank()) executor.execute { androidx.documentfile.provider.DocumentFile.fromSingleUri(context,Uri.parse(folder))?.delete() }
+        DownloadService.sendRemoveDownload(context,HlsDownloadService::class.java,id,true)
+    }
     fun retry(context: Context,download: Download) = DownloadService.sendAddDownload(context,HlsDownloadService::class.java,download.request,true)
 }
 

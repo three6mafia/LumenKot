@@ -47,6 +47,12 @@ class MainActivity : ComponentActivity() {
     private val muted get() = if(light) Color.rgb(75,91,75) else Color.rgb(163,174,161)
     private val tileBase get() = if(light) Color.rgb(236,242,232) else Color.rgb(29,37,29)
     private val tileFocus get() = if(light) Color.rgb(214,236,193) else Color.rgb(54,73,42)
+    private val downloadFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if(uri!=null) {
+            runCatching { contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+                .onSuccess { settings.prefs.edit().putString("downloadTree",uri.toString()).apply();startDownloadsInTree(uri) }.onFailure { toast("Не удалось сохранить доступ к папке: ${it.message}") }
+        } else settings.prefs.edit().remove("pendingDownloadBatch").apply()
+    }
     private val downloadNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { search(it) }
@@ -78,6 +84,7 @@ class MainActivity : ComponentActivity() {
         current=action; action()
     }
     private fun shell(title: String) {
+        liveSearchJob?.cancel()
         generation++
         val root=panel().apply { setPadding(dp(12),0,dp(12),0); setBackgroundColor(if(light) Color.rgb(250,252,247) else Color.rgb(16,21,16)) }
         val brand = text("LUMEN",22f,accent).apply { setTypeface(null,Typeface.BOLD); letterSpacing=.14f }
@@ -110,9 +117,9 @@ class MainActivity : ComponentActivity() {
     }
     private fun toast(s: String) = Toast.makeText(this,s,Toast.LENGTH_LONG).show()
     private fun note(value: String) { body.addView(text(value,15f,muted)) }
-    private fun cards(items: List<Card>, open: (Card) -> Unit = { film(it.url) }) {
-        if(items.isEmpty()) { note("Ничего не найдено"); return }
-        body.addView(androidx.compose.ui.platform.ComposeView(this).apply {
+    private fun cards(items: List<Card>, target: LinearLayout = body, open: (Card) -> Unit = { film(it.url) }) {
+        if(items.isEmpty()) { target.addView(text("Ничего не найдено",15f,muted)); return }
+        target.addView(androidx.compose.ui.platform.ComposeView(this).apply {
             id=View.generateViewId()
             setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
             setContent {
@@ -157,9 +164,9 @@ class MainActivity : ComponentActivity() {
         tile.addView(text(card.info,13f,muted).apply { maxLines=3 })
         return tile
     }
-    private fun pagination(page: Int, pages: Int, go: (Int) -> Unit) {
+    private fun pagination(page: Int, pages: Int, target: LinearLayout = body, go: (Int) -> Unit) {
         val controls=row(); if(page>1) controls.addView(button("← Назад") { go(page-1) })
-        controls.addView(text("$page / $pages",14f,muted)); if(page<pages) controls.addView(button("Дальше →") { go(page+1) }); body.addView(controls)
+        controls.addView(text("$page / $pages",14f,muted)); if(page<pages) controls.addView(button("Дальше →") { go(page+1) }); target.addView(controls)
     }
     private fun home(page: Int = 1, section: Int = 1, genre: String = "", remember: Boolean = true) {
         page("Главная", {
@@ -172,28 +179,47 @@ class MainActivity : ComponentActivity() {
             }
         },remember)
     }
+    private var liveSearchJob: Job? = null
     private fun search(query: String = "", n: Int = 1, remember: Boolean = true) {
         page("Поиск", {
             shell("Поиск")
-            val input=AutoCompleteTextView(this).apply { hint="Фильм, сериал, актёр";threshold=2; setText(query); isSingleLine=true; imeOptions=EditorInfo.IME_ACTION_SEARCH; setOnEditorActionListener { _,_,_ -> search(text.toString(),1,false);true } }
-            var suggestionsJob: Job? = null
-            input.addTextChangedListener(object: TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?,start: Int,count: Int,after: Int) {}
-                override fun onTextChanged(s: CharSequence?,start: Int,before: Int,count: Int) {
-                    suggestionsJob?.cancel();val term=s.toString()
-                    if(term.length>=2) suggestionsJob=lifecycleScope.launch {
-                        delay(350)
-                        val choices=withContext(Dispatchers.IO) { runCatching { api.suggestions(term) }.getOrDefault(emptyList()) }
-                        if(input.isAttachedToWindow && input.text.toString()==term) input.setAdapter(ArrayAdapter(this@MainActivity,android.R.layout.simple_dropdown_item_1line,choices))
+            val screen=generation
+            val input=AutoCompleteTextView(this).apply { hint="Фильм, сериал, актёр";setText(query);isSingleLine=true;imeOptions=EditorInfo.IME_ACTION_SEARCH }
+            val results=panel()
+            var request=0
+            fun find(term: String,number: Int=1,immediate: Boolean=false) {
+                liveSearchJob?.cancel();val token=++request
+                results.removeAllViews()
+                if(term.isBlank()) return
+                results.addView(ProgressBar(this))
+                liveSearchJob=lifecycleScope.launch {
+                    try {
+                        if(!immediate) delay(350)
+                        val catalog=withContext(Dispatchers.IO) { api.search(term,number) }
+                        if(screen!=generation || token!=request || input.text.toString().trim()!=term) return@launch
+                        results.removeAllViews();cards(catalog.cards,results)
+                        pagination(number,catalog.pages,results) { find(term,it,true) }
+                    } catch(e: CancellationException) { throw e }
+                    catch(e: Exception) {
+                        if(screen==generation && token==request) {
+                            results.removeAllViews();results.addView(text(e.message ?: "Ошибка поиска",15f,muted))
+                            results.addView(button("Повторить") { find(term,number,true) })
+                        }
                     }
                 }
+            }
+            input.setOnEditorActionListener { _,_,_ -> find(input.text.toString().trim(),1,true);true }
+            input.addTextChangedListener(object: TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?,start: Int,count: Int,after: Int) {}
+                override fun onTextChanged(s: CharSequence?,start: Int,before: Int,count: Int) { find(s.toString().trim()) }
                 override fun afterTextChanged(s: Editable?) {}
             })
             body.addView(input)
-            body.addView(row(button("Найти") { search(input.text.toString(),1,false) },button("Голосом") {
+            body.addView(row(button("Найти") { find(input.text.toString().trim(),1,true) },button("Голосом") {
                 runCatching { speech.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)) }.onFailure { toast("Распознавание речи недоступно") }
             }))
-            if(query.isNotBlank()) load({ api.search(query,n) }) { result -> cards(result.cards);pagination(n,result.pages) { search(query,it,false) } }
+            body.addView(results)
+            if(query.isNotBlank()) find(query.trim(),n,true)
         },remember)
     }
     private fun listing(title: String, path: String, n: Int = 1, remember: Boolean = true) {
@@ -249,6 +275,10 @@ class MainActivity : ComponentActivity() {
         if(f.restricted.isNotBlank()) { toast(f.restricted);return }
         select("Перевод",f.voices.map { it.title + if(it.premium) " · Premium" else "" }) { i ->
             val voice=f.voices[i]
+            if(download) {
+                load({ if(f.seasons.isNotEmpty() || f.card.url.contains("/series/")) api.seasons(f,voice) else emptyList() }) { prepareDownloads(f,voice,it) }
+                return@select
+            }
             if(f.seasons.isNotEmpty() || f.card.url.contains("/series/")) load({ api.seasons(f,voice) }) { seasons ->
                 if(seasons.isEmpty()) chooseVideo(f,voice,"","",download) else select("Сезон",seasons.map { it.title }) { s ->
                     val season=seasons[s];select("Серия",season.episodes.map { it.title }) { e -> chooseVideo(f,voice,season.id,season.episodes[e].id,download,seasons) }
@@ -259,7 +289,7 @@ class MainActivity : ComponentActivity() {
     private fun chooseVideo(f: Film,v: Voice,s: String,e: String,download: Boolean,seasons: List<Season> = emptyList()) {
         load({ api.video(f,v,s,e) }) { video ->
             if(video.streams.isEmpty()) toast("Потоки недоступны") else chooseQuality(video,download) { i ->
-                if(download) enqueue(f,video.streams[i],s,e,video.subtitles) else {
+                if(download) prepareDownloads(f,v,seasons) else {
                     settings.history(f.card)
                     val payload=JSONObject().put("title",f.card.title).put("filmUrl",f.card.url).put("film",f.card.id).put("voice",v.id).put("season",s).put("episode",e).put("url",video.streams[i].url).put("quality",video.streams[i].quality)
                     payload.put("seasons",JSONArray(seasons.map { season -> JSONObject().put("id",season.id).put("title",season.title).put("episodes",JSONArray(season.episodes.map { JSONObject().put("id",it.id).put("title",it.title) })) }))
@@ -269,6 +299,60 @@ class MainActivity : ComponentActivity() {
                     startActivity(Intent(this,PlayerActivity::class.java).putExtra("media",payload.toString()))
                 }
             }
+        }
+    }
+    private fun prepareDownloads(film: Film,voice: Voice,seasons: List<Season>) {
+        val episodes=seasons.flatMap { season -> season.episodes.map { DownloadEpisode(season.id,it.id,"${season.title} · ${it.title}") } }
+            .ifEmpty { listOf(DownloadEpisode("","",film.card.title)) }
+        load({ api.video(film,voice,episodes.first().season,episodes.first().episode) }) { preview ->
+            if(preview.streams.none { it.format in listOf(StreamFormat.HLS,StreamFormat.MP4) }) { toast("Видео недоступно");return@load }
+            val saved=settings.prefs.getString("downloadTree",null)
+            val label=saved?.let { androidx.documentfile.provider.DocumentFile.fromTreeUri(this,Uri.parse(it))?.name }
+            val host=androidx.compose.ui.platform.ComposeView(this)
+            host.setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+            host.setContent {
+                DownloadOptions(preview,episodes,settings.prefs.getBoolean("rememberDownloadFolder",false),label,!light,
+                    initialSubtitles=settings.prefs.getBoolean("downloadSubtitles",true),dismiss={ (host.parent as? ViewGroup)?.removeView(host) },confirm={ choice ->
+                        (host.parent as? ViewGroup)?.removeView(host)
+                        settings.prefs.edit().putBoolean("rememberDownloadFolder",choice.rememberFolder).apply()
+                        load({
+                            JSONArray(choice.episodes.map { episode ->
+                                val video=if(episode==episodes.first()) preview else api.video(film,voice,episode.season,episode.episode)
+                                val stream=video.streams.firstOrNull { it.format==choice.format && it.quality==choice.quality }
+                                    ?: error("${episode.title}: ${choice.format} ${choice.quality} недоступно")
+                                JSONObject().put("title",film.card.title+if(episode.episode.isNotBlank()) " S${episode.season}E${episode.episode}" else "")
+                                    .put("url",stream.url).put("format",choice.format.name).put("quality",choice.quality).put("includeSubtitles",choice.subtitles)
+                                    .put("poster",if(settings.prefs.getBoolean("downloadPoster",true)) film.card.image else "")
+                                    .put("subtitles",JSONArray(if(choice.subtitles) video.subtitles.map { sub -> JSONObject().put("title",sub.title).put("url",sub.url).put("language",sub.language).put("default",sub.default).put("mime",if(sub.url.substringBefore('?').endsWith(".srt",true)) "application/x-subrip" else "text/vtt") } else emptyList<JSONObject>()))
+                            })
+                        }) { batch ->
+                            settings.prefs.edit().putString("pendingDownloadBatch",batch.toString()).commit()
+                            if(choice.rememberFolder && choice.useSavedFolder && saved!=null && contentResolver.persistedUriPermissions.any { it.uri.toString()==saved && it.isWritePermission }) startDownloadsInTree(Uri.parse(saved))
+                            else downloadFolder.launch(saved?.let { Uri.parse(it) })
+                        }
+                    })
+            }
+            body.addView(host)
+        }
+    }
+    private fun startDownloadsInTree(tree: Uri) {
+        val pending=settings.prefs.getString("pendingDownloadBatch",null) ?: return
+        lifecycleScope.launch {
+            try {
+                val requests=withContext(Dispatchers.IO) {
+                    val folder=androidx.documentfile.provider.DocumentFile.fromTreeUri(this@MainActivity,tree)
+                    check(folder?.canWrite()==true) { "Нет доступа к папке. Выберите её заново." }
+                    val items=JSONArray(pending)
+                    (0 until items.length()).map { OfflineDownloads.request(this@MainActivity,items.getJSONObject(it).put("tree",tree.toString())) }
+                }
+                if(settings.prefs.getBoolean("rememberDownloadFolder",false)) settings.prefs.edit().putString("downloadTree",tree.toString()).apply()
+                if(android.os.Build.VERSION.SDK_INT>=33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    downloadNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                requests.forEach { OfflineDownloads.enqueue(this@MainActivity,it) }
+                settings.prefs.edit().remove("pendingDownloadBatch").apply()
+                toast("Добавлено загрузок: ${requests.size}")
+            } catch(e: CancellationException) { throw e }
+            catch(e: Exception) { toast(e.message ?: "Не удалось начать загрузку") }
         }
     }
     private fun chooseQuality(video: Video,download: Boolean,done: (Int) -> Unit) {
@@ -348,7 +432,11 @@ class MainActivity : ComponentActivity() {
             } })
             body.addView(Switch(this).apply { text="Скачивать субтитры";isChecked=settings.prefs.getBoolean("downloadSubtitles",true);setOnCheckedChangeListener { _,v -> settings.prefs.edit().putBoolean("downloadSubtitles",v).apply() } })
             body.addView(Switch(this).apply { text="Скачивать постер";isChecked=settings.prefs.getBoolean("downloadPoster",true);setOnCheckedChangeListener { _,v -> settings.prefs.edit().putBoolean("downloadPoster",v).apply() } })
-            body.addView(button("Хранилище загрузок") { val dirs=getExternalFilesDirs("downloads").filterNotNull();select("Хранилище",dirs.mapIndexed { i,_ -> if(i==0) "Внутренняя память" else "SD-карта $i" }) { i -> settings.prefs.edit().putInt("downloadStorage",i).apply() } })
+            body.addView(Switch(this).apply { text="Запомнить место сохранения";isChecked=settings.prefs.getBoolean("rememberDownloadFolder",false);setOnCheckedChangeListener { _,checked -> settings.prefs.edit().putBoolean("rememberDownloadFolder",checked).apply() } })
+            body.addView(button("Выбрать папку загрузок") {
+                settings.prefs.edit().remove("pendingDownloadBatch").apply()
+                downloadFolder.launch(settings.prefs.getString("downloadTree",null)?.let { Uri.parse(it) })
+            })
             body.addView(button("Колонок в каталоге") { select("Колонки",(2..8).map { "$it" }) { i -> settings.prefs.edit().putInt("columns",i+2).apply();current?.invoke() } })
             body.addView(button("Перемотка: ${settings.prefs.getInt("seekSeconds",10)} сек") { select("Шаг перемотки",listOf("5","10","15","30","60")) { i -> settings.prefs.edit().putInt("seekSeconds",listOf(5,10,15,30,60)[i]).apply();current?.invoke() } })
             body.addView(Switch(this).apply { text="Следующая серия автоматически";isChecked=settings.prefs.getBoolean("autoNext",true);setOnCheckedChangeListener { _,checked -> settings.prefs.edit().putBoolean("autoNext",checked).apply() } })
@@ -363,63 +451,40 @@ class MainActivity : ComponentActivity() {
             note("LumenKot 1.0 · Kotlin / Android\nНативный перенос Lumen. Оригинал: falcofemoralis/lumen. Лицензия MIT.")
         })
     }
-    private fun enqueue(f: Film,stream: Stream,s: String,e: String,subtitles: List<Subtitle>) {
-        if(stream.format==StreamFormat.HLS) {
-            if(android.os.Build.VERSION.SDK_INT>=33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)
-                downloadNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-            runCatching { OfflineDownloads.add(this,f.card.title+if(e.isNotBlank()) " S${s}E${e}" else "",stream) }
-                .onSuccess { toast("Загрузка HLS добавлена") }.onFailure { toast(it.message ?: "Ошибка загрузки") }
-            return
-        }
-        if(stream.format!=StreamFormat.MP4) { toast("Для загрузки выберите MP4; HLS предназначен для просмотра");return }
-        runCatching {
-            val filename=(f.card.title+if(e.isNotBlank()) " S${s}E${e}" else "").replace(Regex("[^\\p{L}\\p{N} ._-]"),"_")+".mp4"
-            val folders=getExternalFilesDirs("downloads").filterNotNull()
-            val folder=folders.getOrElse(settings.prefs.getInt("downloadStorage",0)) { folders.first() }.apply { mkdirs() }
-            val request=DownloadManager.Request(Uri.parse(stream.url)).setTitle(f.card.title).setDescription(stream.quality).setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED).setDestinationUri(Uri.fromFile(java.io.File(folder,filename)))
-            api.headers().forEach { (k,v) -> request.addRequestHeader(k,v) }
-            val id=(getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
-            val manager=getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            fun sidecar(url: String,name: String): Long {
-                val r=DownloadManager.Request(Uri.parse(url)).setTitle(name).setDestinationUri(Uri.fromFile(java.io.File(folder,name)))
-                api.headers().forEach { (k,v) -> r.addRequestHeader(k,v) }
-                return manager.enqueue(r)
-            }
-            val metadata=JSONObject();val entries=JSONArray()
-            if(settings.prefs.getBoolean("downloadSubtitles",true)) subtitles.forEach { sub ->
-                val extension=if(sub.url.substringBefore('?').endsWith(".srt")) "srt" else "vtt"
-                val name=filename.removeSuffix(".mp4")+"."+sub.title.replace(Regex("[^\\p{L}\\p{N}_-]"),"_")+"."+extension
-                val sid=sidecar(sub.url,name)
-                entries.put(JSONObject().put("id",sid).put("title",sub.title).put("language",sub.language).put("default",sub.default).put("mime",if(extension=="srt") "application/x-subrip" else "text/vtt"))
-            }
-            metadata.put("subtitles",entries)
-            if(settings.prefs.getBoolean("downloadPoster",true) && f.card.image.isNotBlank()) {
-                val image=if(f.card.image.startsWith("http")) f.card.image else Links.static+"/"+f.card.image.trimStart('/')
-                metadata.put("poster",sidecar(image,filename.removeSuffix(".mp4")+".jpg"))
-            }
-            val ids=settings.prefs.getStringSet("downloads",emptySet())!!.toMutableSet();ids.add(id.toString());settings.prefs.edit().putStringSet("downloads",ids).putString("download:$id",metadata.toString()).apply();toast("Загрузка добавлена")
-        }.onFailure { toast(it.message ?: "Не удалось начать загрузку") }
-    }
     private fun downloads() {
         page("Загрузки", {
             shell("Загрузки");body.addView(button("Обновить") { current?.invoke() })
             val hlsDownloads=OfflineDownloads.all(this)
             hlsDownloads.forEach { download ->
                 val metadata=OfflineDownloads.media(download)
+                val exported=DownloadExportWorker.state(this,download.request.id)
+                val tree=metadata.optString("tree")
                 body.addView(text(metadata.optString("title"),19f))
                 note(when(download.state) {
-                    androidx.media3.exoplayer.offline.Download.STATE_COMPLETED -> "Готово · HLS"
-                    androidx.media3.exoplayer.offline.Download.STATE_FAILED -> "Ошибка загрузки HLS"
+                    androidx.media3.exoplayer.offline.Download.STATE_COMPLETED -> when {
+                        tree.isBlank() -> "Готово"
+                        exported.optString("state")=="ready" -> "Готово · ${metadata.optString("format")}"
+                        exported.optString("state")=="error" -> "Не удалось сохранить: ${exported.optString("error")}"
+                        else -> "Сохранение в выбранную папку…"
+                    }
+                    androidx.media3.exoplayer.offline.Download.STATE_FAILED -> "Ошибка загрузки"
                     androidx.media3.exoplayer.offline.Download.STATE_STOPPED -> "Приостановлена"
                     androidx.media3.exoplayer.offline.Download.STATE_REMOVING -> "Удаление…"
-                    else -> if(download.percentDownloaded>=0) "${download.percentDownloaded.toInt()}% · HLS" else "Загрузка HLS…"
+                    else -> if(download.percentDownloaded>=0) "${download.percentDownloaded.toInt()}% · ${metadata.optString("format","HLS")}" else "Загрузка…"
                 })
-                if(download.state==androidx.media3.exoplayer.offline.Download.STATE_COMPLETED)
-                    body.addView(button("▶ Открыть") { startActivity(Intent(this,PlayerActivity::class.java).putExtra("media",metadata.toString())) })
-                if(download.state==androidx.media3.exoplayer.offline.Download.STATE_FAILED)
-                    body.addView(button("Повторить") { OfflineDownloads.retry(this,download);current?.invoke() })
+                if(download.state==androidx.media3.exoplayer.offline.Download.STATE_COMPLETED && (tree.isBlank() || exported.optString("state")=="ready"))
+                    body.addView(button("▶ Открыть") {
+                        val media=if(tree.isBlank()) metadata else exported.getJSONObject("media")
+                        startActivity(Intent(this,PlayerActivity::class.java).putExtra("media",media.toString()))
+                    })
+                if(download.state==androidx.media3.exoplayer.offline.Download.STATE_FAILED || exported.optString("state")=="error")
+                    body.addView(button("Повторить") {
+                        if(download.state==androidx.media3.exoplayer.offline.Download.STATE_FAILED) OfflineDownloads.retry(this,download)
+                        else DownloadExportWorker.schedule(this,download.request.id,true)
+                        current?.invoke()
+                    })
                 body.addView(button("Удалить") {
-                    AlertDialog.Builder(this).setMessage("Удалить загрузку и файл?").setPositiveButton("Удалить") { _,_ -> OfflineDownloads.remove(this,download.request.id);current?.invoke() }.setNegativeButton("Отмена",null).show()
+                    AlertDialog.Builder(this).setMessage("Удалить загрузку и сохранённые файлы?").setPositiveButton("Удалить") { _,_ -> OfflineDownloads.remove(this,download.request.id);current?.invoke() }.setNegativeButton("Отмена",null).show()
                 })
             }
             val manager=getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager

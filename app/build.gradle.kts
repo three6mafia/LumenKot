@@ -8,8 +8,8 @@ android {
         minSdk = 24
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 4
-        versionName = "1.0.3-test"
+        versionCode = 5
+        versionName = "1.0.4-test"
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -30,6 +30,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.media3:media3-database:1.6.1")
+    implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("androidx.fragment:fragment-ktx:1.8.6")
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")

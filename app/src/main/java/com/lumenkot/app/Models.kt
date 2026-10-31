@@ -6,7 +6,7 @@ import org.json.JSONObject
 
 /** URLs are copied verbatim from Lumen's RezkaApi and SettingsScreen.config. */
 object Links {
-    val providers = listOf("https://rezka.ag", "https://rezka-ua.pub", "http://hdrezka.tv", "https://hdrezka.ag")
+    val providers = listOf("https://rezka.ag", "https://rezka-ua.pub", "http://hdrezka.tv", "https://hdrezka.ag", "https://rezka.fi")
     const val official = "https://hdrzk.org"
     const val static = "https://statichdrezka.ac"
     const val github = "https://github.com/falcofemoralis/lumen"
