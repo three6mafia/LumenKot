@@ -45,7 +45,10 @@ class MainActivity : ComponentActivity() {
     private val muted get() = if(light) Color.parseColor("#3B3838") else Color.parseColor("#C4C7C5")
     private val tileBase get() = if(light) Color.parseColor("#C7C7C7") else Color.parseColor("#383838")
     private val tileFocus get() = if(light) Color.parseColor("#1C1C1C") else Color.parseColor("#E3E3E3")
-    private val playerResult=registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {current?.invoke()}
+    private var refreshAfterPlayer=false
+    private var selectionDialog: VideoSelectionDialog?=null
+    private var settingsScreen: SettingsScreen?=null
+    private var showingSettings=false
     private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { search(it) }
     }
@@ -57,9 +60,18 @@ class MainActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object: OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { if(back.isEmpty()) finish() else { current=back.removeLast(); current?.invoke() } }
         })
-        home()
-        intent.data?.let { openLink(it.toString()) }
+        if(savedInstanceState?.getBoolean("settings")==true) preferences() else when(settings.prefs.getString("initialRoute","home")) {
+            "search" -> search();"bookmarks" -> bookmarks();"history" -> history();"account" -> account();else -> home()
+        }
+        if(savedInstanceState?.getBoolean("settings")!=true) intent.data?.let { openLink(it.toString()) }
     }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent);setIntent(intent)
+        intent.data?.let {selectionDialog?.dismiss();settingsScreen?.dismiss();openLink(it.toString())}
+    }
+    override fun onResume() {super.onResume();if(refreshAfterPlayer) {refreshAfterPlayer=false;current?.invoke()}}
+    override fun onSaveInstanceState(outState: Bundle) {outState.putBoolean("settings",showingSettings);super.onSaveInstanceState(outState)}
+    override fun onDestroy() {selectionDialog?.dismiss();settingsScreen?.dismiss();super.onDestroy()}
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun text(value: String, size: Float = 16f, color: Int = foreground) = TextView(this).apply {
         text=value; textSize=size; setTextColor(color); setPadding(dp(4),dp(5),dp(4),dp(5))
@@ -87,6 +99,8 @@ class MainActivity : ComponentActivity() {
         setOnFocusChangeListener { _,focused -> background=GradientDrawable().apply {setColor(if(focused) tileBase else Color.TRANSPARENT);cornerRadius=dp(24).toFloat()} }
     }
     private fun shell(title: String) {
+        showingSettings=title=="Настройки"
+        selectionDialog?.dismiss();settingsScreen?.dismiss()
         generation++
         val root=LinearLayout(this).apply { orientation=if(tv) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL;setBackgroundColor(if(light) Color.WHITE else Color.BLACK) }
         val content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
@@ -134,7 +148,7 @@ class MainActivity : ComponentActivity() {
     private fun note(value: String) { body.addView(text(value,15f,muted)) }
     private fun cards(items: List<Card>, open: (Card) -> Unit = { film(it.url) }) {
         if(items.isEmpty()) { note("Ничего не найдено"); return }
-        val columns=settings.prefs.getInt("columns",if(resources.configuration.screenWidthDp >= 960) 6 else if(resources.configuration.screenWidthDp >= 600) 4 else 3).coerceIn(2,8)
+        val columns=settings.prefs.getInt(if(tv) "columnsTV" else "columns",if(tv) 6 else 3).coerceIn(2,if(tv) 12 else 10)
         val grid=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
         items.chunked(columns).forEach { chunk ->
             val line=LinearLayout(this)
@@ -300,7 +314,7 @@ class MainActivity : ComponentActivity() {
                     background=GradientDrawable().apply {setColor(Color.parseColor("#E50000"));cornerRadius=dp(16).toFloat()}
                     val icon=LumenIcon("Смотреть",Color.WHITE).apply {setBounds(0,0,dp(18),dp(18))};text=android.text.SpannableString("  Смотреть").apply {setSpan(android.text.style.ImageSpan(icon,android.text.style.ImageSpan.ALIGN_BASELINE),0,1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
                 },LinearLayout.LayoutParams(-1,dp(48)).apply {topMargin=dp(16)})
-                if(WatchProgress(settings.prefs).hasProgress(f.card.id)) body.addView(button("Продолжить") {chooseVoice(f,false)}.apply {
+                if(settings.prefs.getBoolean("continueButton",true) && WatchProgress(settings.prefs).hasProgress(f.card.id)) body.addView(button("Продолжить") {chooseVoice(f,false)}.apply {
                     id=R.id.film_continue;textSize=12f;setTextColor(Color.parseColor("#E50000"));setTypeface(null,Typeface.BOLD)
                     val icon=LumenIcon("Продолжить",Color.parseColor("#E50000")).apply {setBounds(0,0,dp(18),dp(18))}
                     text=android.text.SpannableString("  Продолжить").apply {setSpan(android.text.style.ImageSpan(icon,android.text.style.ImageSpan.ALIGN_BASELINE),0,1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
@@ -320,35 +334,26 @@ class MainActivity : ComponentActivity() {
         else select("Добавить / убрать закладку",f.bookmarks.map {it.title}) {i->load({api.bookmark(f.card.id,f.bookmarks[i].id)}) {toast("Закладка обновлена")}}
     }
     private fun chooseVoice(f: Film, download: Boolean) {
+        if(selectionDialog?.isShowing==true) return
         if(f.restricted.isNotBlank()) { toast(f.restricted);return }
-        VideoSelectionDialog(this,api,f,lifecycleScope,download) { v,season,episode,seasons,video ->
+        selectionDialog=VideoSelectionDialog(this,api,f,lifecycleScope,download) { v,season,episode,seasons,video ->
             deliverVideo(f,v,season,episode,download,seasons,video)
-        }.show()
+        }.also {it.show()}
     }
     private fun deliverVideo(f: Film,v: Voice,s: String,e: String,download: Boolean,seasons: List<Season>,video: Video) {
-            if(video.streams.isEmpty()) toast("Потоки недоступны") else chooseQuality(video,download) { i ->
-                if(download) enqueue(f,video.streams[i],s,e,video.subtitles) else {
+            val stream=PlaybackQuality.preferred(video,settings.quality)
+            if(stream==null) {toast(if(video.streams.any {it.premium}) PlaybackQuality.premiumMessage() else "Потоки недоступны");return}
+                if(download) enqueue(f,stream,s,e,video.subtitles) else {
                     settings.history(f.card)
-                    val payload=JSONObject().put("title",f.card.title).put("subtitle",f.card.info).put("filmUrl",f.card.url).put("film",f.card.id).put("voice",v.id).put("season",s).put("episode",e).put("url",video.streams[i].url).put("quality",video.streams[i].quality)
+                    val payload=JSONObject().put("title",f.card.title).put("subtitle",f.card.info).put("filmUrl",f.card.url).put("film",f.card.id).put("voice",v.id).put("season",s).put("episode",e).put("url",stream.url).put("quality",stream.quality).put("premium",stream.premium)
                     payload.put("seasons",JSONArray(seasons.map { season -> JSONObject().put("id",season.id).put("title",season.title).put("episodes",JSONArray(season.episodes.map { JSONObject().put("id",it.id).put("title",it.title) })) }))
                     payload.put("voices",JSONArray(f.voices.map { JSONObject().put("id",it.id).put("title",it.title) }))
-                    payload.put("streams",JSONArray(video.streams.map { JSONObject().put("quality",it.quality).put("url",it.url) }))
+                    payload.put("streams",JSONArray(video.streams.map { JSONObject().put("quality",it.quality).put("url",it.url).put("premium",it.premium) }))
                     payload.put("subtitles",JSONArray(video.subtitles.map { JSONObject().put("title",it.title).put("url",it.url).put("language",it.language).put("default",it.default) }))
-                    playerResult.launch(Intent(this,PlayerActivity::class.java).putExtra("media",payload.toString()))
+                    openPlayer(payload)
                 }
-            }
     }
-    private fun chooseQuality(video: Video,download: Boolean,done: (Int) -> Unit) {
-        fun chosen(i: Int) {
-            if(settings.prefs.getBoolean("saveQuality",true)) settings.prefs.edit().putString("quality",video.streams[i].quality).apply()
-            done(i)
-        }
-        if(download || settings.prefs.getBoolean("askQuality",false)) select("Качество",video.streams.map { it.quality },::chosen)
-        else {
-            val index=video.streams.indexOfFirst { it.quality==settings.prefs.getString("quality","") }
-            chosen(if(index>=0) index else video.streams.lastIndex)
-        }
-    }
+    private fun openPlayer(payload: JSONObject) {refreshAfterPlayer=true;startActivity(PlayerActivity.intent(this,payload))}
     private fun select(title: String, options: List<String>, done: (Int) -> Unit) {
         if(options.isEmpty()) { toast("Нет доступных вариантов"); return }
         AlertDialog.Builder(this).setTitle(title).setItems(options.toTypedArray()) { _, i -> done(i) }.setNegativeButton("Отмена",null).show()
@@ -419,32 +424,8 @@ class MainActivity : ComponentActivity() {
     private fun preferences() {
         page("Настройки", {
             shell("Настройки")
-            body.addView(button("Тема интерфейса") { select("Тема",listOf("Системная","Тёмная","Светлая")) { i -> settings.prefs.edit().putString("theme",listOf("system","dark","light")[i]).apply();recreate() } })
-            body.addView(Switch(this).apply { text="Официальный режим"; isChecked=settings.official;setOnCheckedChangeListener { _,checked -> settings.official=checked } })
-            body.addView(button("Зеркало: ${settings.provider}") {
-                select("Зеркало",Links.providers+"Другое…") { i -> if(i<Links.providers.size) { settings.provider=Links.providers[i];current?.invoke() } else edit("Адрес зеркала",settings.provider) { settings.provider=it } }
-            })
-            body.addView(button("Зеркало для ссылки «Поделиться»") { select("Зеркало ссылки",Links.providers) { i -> settings.shareLink=Links.providers[i] } })
-            body.addView(Switch(this).apply { text="Спрашивать качество видео";isChecked=settings.prefs.getBoolean("askQuality",false);setOnCheckedChangeListener { _,v -> settings.prefs.edit().putBoolean("askQuality",v).apply() } })
-            body.addView(Switch(this).apply { text="Запоминать качество видео";isChecked=settings.prefs.getBoolean("saveQuality",true);setOnCheckedChangeListener { _,v -> settings.prefs.edit().putBoolean("saveQuality",v).apply() } })
-            body.addView(button("CDN: ${settings.cdn.ifBlank { "Автоматически" }}") { select("CDN",listOf("Автоматически")+Links.cdns+"Другое…") { i ->
-                when { i==0 -> { settings.cdn="";current?.invoke() };i<=Links.cdns.size -> { settings.cdn=Links.cdns[i-1];current?.invoke() };else -> edit("CDN",settings.cdn) { require(it.startsWith("https://"));settings.cdn=it } }
-            } })
-            body.addView(Switch(this).apply { text="Скачивать субтитры";isChecked=settings.prefs.getBoolean("downloadSubtitles",true);setOnCheckedChangeListener { _,v -> settings.prefs.edit().putBoolean("downloadSubtitles",v).apply() } })
-            body.addView(Switch(this).apply { text="Скачивать постер";isChecked=settings.prefs.getBoolean("downloadPoster",true);setOnCheckedChangeListener { _,v -> settings.prefs.edit().putBoolean("downloadPoster",v).apply() } })
-            body.addView(button("Хранилище загрузок") { val dirs=getExternalFilesDirs("downloads").filterNotNull();select("Хранилище",dirs.mapIndexed { i,_ -> if(i==0) "Внутренняя память" else "SD-карта $i" }) { i -> settings.prefs.edit().putInt("downloadStorage",i).apply() } })
-            body.addView(button("Колонок в каталоге") { select("Колонки",(2..8).map { "$it" }) { i -> settings.prefs.edit().putInt("columns",i+2).apply();current?.invoke() } })
-            body.addView(button("Перемотка: ${settings.prefs.getInt("seekSeconds",10)} сек") { select("Шаг перемотки",listOf("5","10","15","30","60")) { i -> settings.prefs.edit().putInt("seekSeconds",listOf(5,10,15,30,60)[i]).apply();current?.invoke() } })
-            body.addView(Switch(this).apply { text="Следующая серия автоматически";isChecked=settings.prefs.getBoolean("autoNext",true);setOnCheckedChangeListener { _,checked -> settings.prefs.edit().putBoolean("autoNext",checked).apply() } })
-            body.addView(button("Скорость по умолчанию") { val speeds=listOf(.5f,.75f,1f,1.25f,1.5f,2f);select("Скорость",speeds.map { "${it}×" }) { i -> settings.prefs.edit().putFloat("speed",speeds[i]).apply() } })
-            body.addView(button("User-Agent") { edit("User-Agent",settings.userAgent) { settings.userAgent=it } })
-            body.addView(button("Проверить соединение") { load({ api.request("/");"Соединение установлено" }) { toast(it) } })
-            body.addView(Switch(this).apply { text="Синхронизация прогресса (Time share)";isChecked=settings.prefs.getBoolean("cloudProgress",false);setOnCheckedChangeListener { _,checked -> settings.prefs.edit().putBoolean("cloudProgress",checked).apply() } })
-            body.addView(button("Обновления оригинального Lumen") { external(Links.updates) })
-            body.addView(button("Тест плеера") { startActivity(Intent(this,PlayerActivity::class.java).putExtra("media",JSONObject().put("title","Big Buck Bunny").put("url",Links.demo).toString())) })
-            body.addView(button("GitHub") { external(Links.github) });body.addView(button("Telegram") { external(Links.telegram) })
-            body.addView(button("Поддержка зеркал") { external("mailto:${Links.support}") })
-            note("LumenKot 1.0 · Kotlin / Android\nНативный перенос Lumen. Оригинал: falcofemoralis/lumen. Лицензия MIT.")
+            settingsScreen=SettingsScreen(this,settings,::external,{recreate()},{load({api.request("/");"Соединение установлено"}) {toast(it)}})
+            settingsScreen!!.render(body)
         })
     }
     private fun enqueue(f: Film,stream: Stream,s: String,e: String,subtitles: List<Subtitle>) {
@@ -493,7 +474,7 @@ class MainActivity : ComponentActivity() {
                     if(status==DownloadManager.STATUS_SUCCESSFUL) body.addView(button("▶ Открыть") { manager.getUriForDownloadedFile(id)?.let { uri ->
                         val offline=JSONArray()
                         for(i in 0 until subs.length()) { val sub=subs.getJSONObject(i);val subUri=manager.getUriForDownloadedFile(sub.getLong("id"));if(subUri!=null) offline.put(JSONObject(sub.toString()).put("url",subUri.toString())) }
-                        startActivity(Intent(this,PlayerActivity::class.java).putExtra("media",JSONObject().put("title",title).put("url",uri.toString()).put("subtitles",offline).toString()))
+                        openPlayer(JSONObject().put("title",title).put("url",uri.toString()).put("subtitles",offline))
                     } })
                     body.addView(button("Удалить") { AlertDialog.Builder(this).setMessage("Удалить загрузку и файл?").setPositiveButton("Удалить") { _,_ -> val group=mutableListOf(id);for(i in 0 until subs.length()) group.add(subs.getJSONObject(i).getLong("id"));if(metadata.has("poster")) group.add(metadata.getLong("poster"));manager.remove(*group.toLongArray());settings.prefs.edit().remove("download:$id").putStringSet("downloads",ids.filter { it!=id }.map { it.toString() }.toSet()).apply();current?.invoke() }.setNegativeButton("Отмена",null).show() })
                 }

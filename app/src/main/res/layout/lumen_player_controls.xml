@@ -10,6 +10,7 @@
             <TextView android:id="@id/exo_position" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#E3E3E3" android:textSize="14sp" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" / " android:textColor="#E3E3E3" />
             <TextView android:id="@id/exo_duration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#E3E3E3" android:textSize="14sp" />
+            <TextView android:id="@+id/lumen_buffer_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone" android:textColor="#E3E3E3" android:textSize="14sp" />
         </LinearLayout>
         <androidx.media3.ui.DefaultTimeBar android:id="@id/exo_progress" android:layout_width="match_parent" android:layout_height="32dp" app:played_color="#E3E3E3" app:scrubber_color="#E3E3E3" app:buffered_color="#999999" />
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">

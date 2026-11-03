@@ -63,7 +63,10 @@ class NativeSmokeTest {
         ActivityScenario.launch(MainActivity::class.java).use {scenario ->
             scenario.onActivity {activity -> dialog=VideoSelectionDialog(activity,api,film,activity.lifecycleScope,false) {_,_,_,_,video ->result.set(video)};dialog.show() }
             val until=SystemClock.elapsedRealtime()+90000
-            while(result.get()==null && SystemClock.elapsedRealtime()<until) SystemClock.sleep(250)
+            while(result.get()==null && SystemClock.elapsedRealtime()<until) {
+                scenario.onActivity {chooseFixtureQuality(dialog)}
+                SystemClock.sleep(250)
+            }
             assertNotNull("Watch must resolve actual fixture video through native API",result.get())
             assertTrue(result.get().streams.isNotEmpty())
         }
@@ -81,7 +84,8 @@ class NativeSmokeTest {
                     if(dialog.isShowing) {
                         val views=ArrayList<android.view.View>()
                         dialog.window!!.decorView.findViewsWithText(views,"Серия 1",android.view.View.FIND_VIEWS_WITH_TEXT)
-                        views.filterIsInstance<android.widget.Button>().firstOrNull {it.text=="Серия 1"}?.performClick()
+                        views.filterIsInstance<android.widget.Button>().firstOrNull {it.text=="Серия 1" && it.isShown}?.performClick()
+                        chooseFixtureQuality(dialog)
                     }
                 }
                 SystemClock.sleep(250)
@@ -90,6 +94,11 @@ class NativeSmokeTest {
             assertEquals("1/1",selected.get())
             assertTrue(result.get().streams.isNotEmpty())
         }
+    }
+    private fun chooseFixtureQuality(dialog: VideoSelectionDialog) {
+        if(!dialog.isShowing) return
+        val qualities=dialog.findViewById<android.view.ViewGroup>(R.id.video_quality_options)
+        if(qualities.visibility==android.view.View.VISIBLE) (0 until qualities.childCount).map {qualities.getChildAt(it)}.filterIsInstance<android.widget.Button>().firstOrNull {it.text=="720p"}?.performClick()
     }
     @Test fun media3PlaysLocalMp4() {
         val intent=Intent(context,PlayerActivity::class.java).putExtra("media",JSONObject().put("title","Native smoke").put("url","http://127.0.0.1:8765/video.mp4").toString())

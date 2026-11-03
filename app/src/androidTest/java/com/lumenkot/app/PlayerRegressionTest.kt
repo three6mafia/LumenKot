@@ -181,4 +181,46 @@ class PlayerRegressionTest {
             scenario.onActivity {activity ->assertTrue(activity.findViewById<PlayerView>(R.id.player_surface).player!!.currentPosition>=saved-1000)}
         }
     }
+    @Test fun dRepeatedLaunchReusesPlayerAndSystemPipCloseReleasesIt() {
+        assertTrue(context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE))
+        ActivityScenario.launch<PlayerActivity>(mediaIntent()).use {scenario ->
+            waitPlaying(scenario)
+            lateinit var activity: PlayerActivity
+            lateinit var surface: PlayerView
+            lateinit var original: androidx.media3.common.Player
+            scenario.onActivity {a ->activity=a;surface=a.findViewById(R.id.player_surface);original=surface.player!!;original.seekTo(12000)}
+            repeat(3) {context.startActivity(mediaIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));instrumentation.waitForIdleSync()}
+            scenario.onActivity {a ->assertSame(activity,a);assertSame(original,a.findViewById<PlayerView>(R.id.player_surface).player)}
+            instrumentation.runOnMainSync {
+                val all=androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED)
+                assertEquals(1,all.count {it is PlayerActivity})
+                activity.findViewById<View>(R.id.player_pip).performClick()
+            }
+            await("System PiP must appear",30000) {var pip=false;instrumentation.runOnMainSync {pip=activity.isInPictureInPictureMode};pip}
+            val automation=instrumentation.uiAutomation
+            automation.serviceInfo=automation.serviceInfo.apply {flags=flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS}
+            var mini: android.view.accessibility.AccessibilityWindowInfo?=null
+            await("PiP accessibility window must be present",20000) {mini=automation.windows.firstOrNull {it.isInPictureInPictureMode};mini!=null}
+            val bounds=android.graphics.Rect();mini!!.getBoundsInScreen(bounds)
+            val now=SystemClock.uptimeMillis()
+            for(action in listOf(MotionEvent.ACTION_DOWN,MotionEvent.ACTION_UP)) {
+                val event=MotionEvent.obtain(now,SystemClock.uptimeMillis(),action,bounds.centerX().toFloat(),bounds.centerY().toFloat(),0)
+                assertTrue(automation.injectInputEvent(event,true));event.recycle()
+            }
+            fun closeNode(node: android.view.accessibility.AccessibilityNodeInfo?): android.view.accessibility.AccessibilityNodeInfo? {
+                if(node==null) return null
+                val label=node.contentDescription?.toString().orEmpty().lowercase()
+                if(node.isClickable && (node.viewIdResourceName?.endsWith(":id/dismiss")==true || label.contains("close") || label.contains("dismiss") || label.contains("закрыть"))) return node
+                for(i in 0 until node.childCount) closeNode(node.getChild(i))?.let {return it}
+                return null
+            }
+            var close: android.view.accessibility.AccessibilityNodeInfo?=null
+            await("PiP menu must expose the system Close button",15000) {close=automation.windows.firstNotNullOfOrNull {closeNode(it.root)};close!=null}
+            assertTrue(close!!.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK))
+            await("System close must destroy the Activity and release the player",30000) {
+                var closed=false;instrumentation.runOnMainSync {closed=activity.isDestroyed && surface.player==null};closed
+            }
+            assertTrue(WatchProgress(settings.prefs).position("42","1","2","3")>=12000)
+        }
+    }
 }

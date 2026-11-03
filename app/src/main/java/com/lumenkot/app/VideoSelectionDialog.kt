@@ -23,6 +23,7 @@ class VideoSelectionDialog(
     private lateinit var episodesView: LinearLayout
     private lateinit var divider: View
     private lateinit var choices: LinearLayout
+    private lateinit var qualities: LinearLayout
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar
     private lateinit var retry: Button
@@ -54,7 +55,7 @@ class VideoSelectionDialog(
             background=rounded(if(light) "#DADADA" else "#252525").apply {setStroke(dp(1),Color.parseColor(if(light) "#C7C7C7" else "#383838"))}
         }
         voices=Spinner(activity)
-        voices.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,film.voices.map {it.title.ifBlank {"Оригинал"}})
+        voices.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,film.voices.map {voiceLabel(it)})
         voices.setSelection(film.voices.indexOf(voice));voices.visibility=if(serial && film.voices.size>1) View.VISIBLE else View.GONE
         content.addView(voices)
         val scroll=ScrollView(activity)
@@ -63,7 +64,9 @@ class VideoSelectionDialog(
         divider=View(activity).apply {id=R.id.season_episode_divider;setBackgroundColor(Color.parseColor(if(light) "#B1B1B1" else "#4E4E4E"));visibility=View.GONE}
         choices.addView(divider,LinearLayout.LayoutParams(-1,dp(2)).apply {setMargins(0,dp(8),0,dp(8))})
         episodesView=LinearLayout(activity).apply {orientation=LinearLayout.VERTICAL};choices.addView(episodesView)
-        scroll.addView(choices);content.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        qualities=LinearLayout(activity).apply {id=R.id.video_quality_options;orientation=LinearLayout.VERTICAL;visibility=View.GONE}
+        scroll.addView(LinearLayout(activity).apply {orientation=LinearLayout.VERTICAL;addView(choices);addView(qualities)})
+        content.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         progress=ProgressBar(activity);content.addView(progress)
         status=TextView(activity).apply {id=R.id.video_selection_status;setTextColor(this@VideoSelectionDialog.foreground);textSize=14f;setPadding(dp(8),dp(4),dp(8),dp(4))};content.addView(status)
         retry=chip("Повторить",false) {if(seasonFailure) loadSeasons() else fetchVideo()}.apply {id=R.id.video_selection_play;visibility=View.GONE};content.addView(retry)
@@ -72,7 +75,7 @@ class VideoSelectionDialog(
         if(!serial) {
             if(film.voices.size>1) {
                 choices.addView(TextView(activity).apply {text="Перевод";textSize=14f;setTextColor(this@VideoSelectionDialog.foreground);gravity=Gravity.CENTER;setPadding(0,dp(8),0,dp(8))},0)
-                film.voices.forEach {v -> choices.addView(chip(v.title.ifBlank {"Оригинал"},v==voice) {voice=v;fetchVideo()},LinearLayout.LayoutParams(-1,dp(48)).apply {bottomMargin=dp(4)})}
+                film.voices.forEach {v -> choices.addView(chip(voiceLabel(v),v==voice) {voice=v;fetchVideo()},LinearLayout.LayoutParams(-1,dp(48)).apply {bottomMargin=dp(4)})}
             }
             busy(false)
         } else voices.onItemSelectedListener=object: AdapterView.OnItemSelectedListener {
@@ -89,6 +92,7 @@ class VideoSelectionDialog(
         if(!serial && film.voices.size==1 && !initialFetch) {initialFetch=true;fetchVideo()}
     }
     private val serial get()=film.seasons.isNotEmpty() || film.card.url.contains("/series/") || film.card.url.contains("/show/")
+    private fun voiceLabel(v: Voice)=v.title.ifBlank {"Оригинал"}+if(v.premium) " · Premium" else ""
     private fun busy(value: Boolean) {loading=value;progress.visibility=if(value) View.VISIBLE else View.GONE;retry.isEnabled=!value;voices.isEnabled=!value}
     private fun loadSeasons() {
         job?.cancel();seasonsView.removeAllViews();episodesView.removeAllViews();season=null;episode=null;status.text="";retry.visibility=View.GONE;seasonFailure=false
@@ -132,8 +136,35 @@ class VideoSelectionDialog(
                 val v=voice;val s=season?.id.orEmpty();val ep=episode?.id.orEmpty()
                 val video=withContext(Dispatchers.IO) {api.video(film,v,s,ep)}
                 check(video.streams.isNotEmpty()) {"Сервис не вернул видеопотоки. Попробуйте другой перевод или проверьте доступ к видео на сайте."}
-                ready(v,s,ep,seasons,video);dismiss()
+                if(!isShowing) return@launch
+                if(download || api.settings.prefs.getBoolean("askQuality",true)) showQuality(video)
+                else {
+                    val stream=PlaybackQuality.preferred(video,api.settings.quality) ?: throw PremiumRequiredException(PlaybackQuality.premiumMessage())
+                    complete(video,stream)
+                }
             } catch(e: CancellationException) {throw e} catch(e: Exception) {status.text=e.message?.takeIf {it.isNotBlank()} ?: "Не удалось получить видео";retry.visibility=View.VISIBLE} finally {if(isShowing) busy(false)}
         }
+    }
+    private fun showQuality(video: Video) {
+        busy(false);choices.visibility=View.GONE;voices.visibility=View.GONE;qualities.removeAllViews();qualities.visibility=View.VISIBLE
+        status.text="Выберите качество";retry.visibility=View.GONE
+        val preferred=PlaybackQuality.preferred(video,api.settings.quality)
+        video.streams.reversed().forEach {stream ->
+            qualities.addView(chip(stream.label+if(!stream.available) " · Недоступно" else "",stream==preferred) {
+                if(!stream.available) status.text=PlaybackQuality.premiumMessage(stream.quality) else complete(video,stream)
+            },LinearLayout.LayoutParams(-1,-2).apply {bottomMargin=dp(4)})
+        }
+        qualities.addView(chip("Назад к переводу",false) {
+            qualities.visibility=View.GONE;choices.visibility=View.VISIBLE;status.text=""
+            voices.visibility=if(serial && film.voices.size>1) View.VISIBLE else View.GONE
+            if(!serial && film.voices.size==1) {retry.text="Выбрать качество";retry.visibility=View.VISIBLE}
+        })
+    }
+    private fun complete(video: Video,stream: Stream) {
+        if(!isShowing || !stream.available) return
+        if(!download) PlaybackQuality.remember(api.settings,stream)
+        val v=voice;val s=season?.id.orEmpty();val ep=episode?.id.orEmpty()
+        dismiss()
+        ready(v,s,ep,seasons,video.copy(selectedQuality=stream.quality))
     }
 }

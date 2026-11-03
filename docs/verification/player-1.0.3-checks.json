@@ -1,0 +1,86 @@
+{
+  "version": "1.0.3-test",
+  "versionCode": 4,
+  "base": "e28cab7",
+  "branch": "fix/source-ui-parity",
+  "apk": "artifacts/LumenKot-1.0.3-test.apk",
+  "bytes": 7887417,
+  "sha256": "9981a99dfc9df079529ce698eb708a25cf8fb9444786db3160c01c14792ce4b7",
+  "signing_certificate_sha256": "c46f3246a289ec016eb7ae42590588bd3ec1bea1dbfbe014481d5cf489485929",
+  "same_certificate_as_1_0_2": true,
+  "build": {
+    "assembleRelease": "passed",
+    "assembleDebug": "passed",
+    "assembleDebugAndroidTest": "passed",
+    "testDebugUnitTest": "passed",
+    "lintDebug": "passed"
+  },
+  "unit_tests": [
+    {
+      "name": "com.lumenkot.app.NativeRuntimeTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.ParserTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PipPresentationTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PlaybackLifecycleTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PlaybackOptionsTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PlayerInteractionTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.QualityAndSettingsTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "unit_test_total": 47,
+  "lint": {
+    "Warning": 109
+  },
+  "android": {
+    "instrumentation_tests_prepared": 11,
+    "instrumentation_run": "not completed",
+    "release_install_and_launch": "not verified",
+    "system_pip": "not verified",
+    "google_apis": "system_server died during boot; system UI DeadSystemException",
+    "aosp_atd": "emulator process Aborted, exit 134; no PiP feature advertised"
+  },
+  "premium": {
+    "synthetic_api_error": "passed",
+    "media3_http_403_error_to_quality_selector": "passed (HTTP data source + callback handling)",
+    "real_premium_account": "not verified"
+  }
+}

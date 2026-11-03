@@ -23,9 +23,12 @@ data class Category(val title: String,val genres: List<Choice>,val years: List<C
 data class Voice(val id: String, val title: String, val camrip: String = "0", val ads: String = "0", val director: String = "0", val premium: Boolean = false, val active: Boolean = false)
 data class Episode(val id: String, val title: String, val active: Boolean = false)
 data class Season(val id: String, val title: String, val episodes: List<Episode>)
-data class Stream(val quality: String, val url: String)
+data class Stream(val quality: String, val url: String, val premium: Boolean = false) {
+    val available get() = url.startsWith("https://") || url.startsWith("http://")
+    val label get() = quality + if(premium) " · Premium" else ""
+}
 data class Subtitle(val title: String, val url: String, val language: String = "", val default: Boolean = false)
-data class Video(val streams: List<Stream>, val subtitles: List<Subtitle> = emptyList())
+data class Video(val streams: List<Stream>, val subtitles: List<Subtitle> = emptyList(), val selectedQuality: String? = null)
 data class Film(val card: Card, val original: String, val description: String, val info: String, val voices: List<Voice>, val seasons: List<Season>, val direct: Video?, val links: List<Choice>, val related: List<Card>, val bookmarks: List<Choice>, val schedule: String, val restricted: String)
 data class Comment(val id: String, val author: String, val date: String, val text: String, val likes: String, val indent: Int,val html: String = "")
 
@@ -98,7 +101,14 @@ object Parser {
         }.toList()
         return Video(streams, subtitles)
     }
-    fun streams(raw: String): List<Stream> = Regex("\\[([^]]+)]([^,]+)").findAll(StreamDecoder.decrypt(raw)).map { Stream(Jsoup.parse(it.groupValues[1]).text(), it.groupValues[2].substringBefore(" or ").trim()) }.filter { it.url.startsWith("http") }.distinctBy { it.url }.toList()
+    fun streams(raw: String): List<Stream> = Regex("\\[([^]]+)]([^,]*)").findAll(StreamDecoder.decrypt(raw)).mapNotNull { match ->
+        val markup=match.groupValues[1]
+        val quality=Jsoup.parse(markup).text().trim()
+        val value=match.groupValues[2].substringBefore(" or ").trim()
+        val premium=quality.equals("1080p Ultra",true) || Regex("premium|prem[_-]|подписк",RegexOption.IGNORE_CASE).containsMatchIn(markup+value)
+        val url=value.takeIf {it.startsWith("https://") || it.startsWith("http://")}.orEmpty()
+        if(url.isEmpty() && !premium) null else Stream(quality,url,premium)
+    }.distinctBy { it.quality to it.url }.toList()
 }
 
 /** Port of RezkaApi/decode.ts; no WebView or JavaScript engine. */

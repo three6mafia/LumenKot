@@ -35,6 +35,11 @@ class Settings(context: Context) {
     var cdn: String
         get() = prefs.getString("cdn", "")!!
         set(value) { prefs.edit().putString("cdn", value.trimEnd('/')).apply() }
+    var automaticCDN: Boolean
+        get() = prefs.getBoolean("automaticCDN",cdn.isBlank())
+        set(value) {prefs.edit().putBoolean("automaticCDN",value).apply();if(!value && cdn.isBlank()) cdn=Links.cdns.first()}
+    val volumeStep get() = prefs.getInt("volumeStep",1).coerceIn(1,5)
+    val quality get() = prefs.getString("quality","720p") ?: "720p"
     var userAgent: String
         get() = prefs.getString("userAgent", "Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}; ${Build.MANUFACTURER} ${Build.MODEL}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36")!!
         set(value) { prefs.edit().putString("userAgent", value).apply() }
@@ -66,6 +71,8 @@ class PersistentCookies(private val settings: Settings): CookieJar {
     fun clear() { settings.prefs.edit().remove("cookies").apply() }
     fun signedIn() = loadForRequest(settings.endpoint.toHttpUrl()).any { it.name == "dle_password" && it.value.isNotEmpty() }
 }
+
+class PremiumRequiredException(message: String): IllegalStateException(message)
 
 class RezkaApi(val settings: Settings) {
     val cookies = PersistentCookies(settings)
@@ -104,7 +111,13 @@ class RezkaApi(val settings: Settings) {
         check(response.trimStart().startsWith("{")) { "Сервис вернул страницу вместо видеоданных. Проверьте зеркало и вход в аккаунт." }
         return JSONObject(response)
     }
-    fun checked(path: String, fields: Map<String, String>): JSONObject = json(path, fields).also { check(it.optBoolean("success")) { Jsoup.parse(it.optString("message", "Не удалось выполнить запрос")).text().ifBlank { "Сервис отклонил запрос. Проверьте доступ к выбранному видео или аккаунту на сайте." } } }
+    fun checked(path: String, fields: Map<String, String>): JSONObject = json(path, fields).also {
+        if(!it.optBoolean("success")) {
+            val message=Jsoup.parse(it.optString("message")).text().ifBlank {"Сервис отклонил запрос. Проверьте доступ к выбранному видео или аккаунту на сайте."}
+            if(Regex("premium|премиум|подписк",RegexOption.IGNORE_CASE).containsMatchIn(message)) throw PremiumRequiredException(message+"\n"+PlaybackQuality.premiumMessage("выбранного видео"))
+            error(message)
+        }
+    }
     fun catalog(path: String = "/new", page: Int = 1, filter: String = "", genre: String = ""): Catalog = Parser.catalog(request(path.trimEnd('/') + "/page/$page/", buildMap { if(filter.isNotEmpty()) put("filter",filter); if(genre.isNotEmpty()) put("genre",genre) }))
     fun search(query: String, page: Int): Catalog = Parser.catalog(request("/search/", mapOf("do" to "search", "subaction" to "search", "q" to query, "page" to "$page")))
     fun hot(genre: String = "0") = Parser.catalog(request("/engine/ajax/get_newest_slider_content.php", mapOf("id" to genre), true))
@@ -121,7 +134,7 @@ class RezkaApi(val settings: Settings) {
         else { data["is_camrip"] = voice.camrip; data["is_ads"] = voice.ads; data["is_director"] = voice.director }
         return modify(Parser.video(checked("/ajax/get_cdn_series", data)))
     }
-    private fun modify(v: Video): Video = if(settings.cdn.isEmpty()) v else v.copy(streams=v.streams.map { s -> val host=settings.cdn.toHttpUrl(); s.copy(url=s.url.toHttpUrl().newBuilder().scheme(host.scheme).host(host.host).port(host.port).build().toString()) })
+    private fun modify(v: Video): Video = if(settings.automaticCDN || settings.cdn.isEmpty()) v else v.copy(streams=v.streams.map { s -> if(!s.available) s else {val host=settings.cdn.toHttpUrl(); s.copy(url=s.url.toHttpUrl().newBuilder().scheme(host.scheme).host(host.host).port(host.port).build().toString())} })
     fun saveWatch(film: Film, voice: Voice, season: String, episode: String, seconds: Long) {
         json("/ajax/send_save", mapOf("post_id" to film.card.id, "translator_id" to voice.id,"season" to season.ifBlank { "0" }, "episode" to episode.ifBlank { "0" }, "current_time" to seconds.coerceAtLeast(1).toString()))
     }
@@ -129,7 +142,7 @@ class RezkaApi(val settings: Settings) {
     fun profile(): String {
         val id = cookies.loadForRequest(settings.endpoint.toHttpUrl()).firstOrNull { it.name == "dle_user_id" }?.value ?: error("Войдите в аккаунт")
         val r = Jsoup.parse(request("/user/$id"))
-        return listOf(r.title(), r.selectFirst("#email")?.attr("value").orEmpty(), r.selectFirst(".b-tophead-premuser")?.text().orEmpty()).filter { it.isNotBlank() }.joinToString("\n")
+        return listOf(r.title(), r.selectFirst("#email")?.attr("value").orEmpty(), r.selectFirst(".b-tophead-premuser")?.text()?.let {"HDrezka Premium · $it"}.orEmpty()).filter { it.isNotBlank() }.joinToString("\n")
     }
     fun bookmarks(): List<Choice> = Jsoup.parse(request("/favorites")).select(".b-favorites_content__cats_list_item").map { Choice(it.attr("data-cat_id"), it.selectFirst(".name")?.text().orEmpty()) }
     fun bookmark(film: String, category: String) { checked("/ajax/favorites",mapOf("post_id" to film,"cat_id" to category,"action" to "add_post")) }
