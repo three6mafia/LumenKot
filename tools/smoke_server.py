@@ -7,8 +7,12 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 import json
 import urllib.parse
+from threading import Lock
 
 HOST = 'http://127.0.0.1:8765'
+HLS_ROOT = Path(__file__).resolve().parents[1]/'work'/'hls-fixture'
+HLS_LOCK = Lock()
+HLS_STATE = {'blocked': False, 'requests': 0}
 CARD = f'''<div class="b-content__inline_item" data-id="42"><div class="b-content__inline_item-cover"><img src="{HOST}/poster.png"><span class="info">Тестовые данные</span></div><div class="b-content__inline_item-link"><a href="/films/42-native.html">Проверка Kotlin</a><div>2026 · Smoke test</div></div></div>'''
 FILM = f'''<meta property="og:type" content="video.movie"><div class="b-post__title"><h1>Проверка Kotlin</h1></div><div class="b-post__origtitle">Native playback fixture</div><div class="b-sidecover"><img src="{HOST}/poster.png"></div><table class="b-post__info"><tr><td>Год:</td><td>2026</td></tr></table><div id="user-favorites-holder" data-post_id="42"></div><div class="b-post__description_text">Синтетические данные для проверки нативного интерфейса и плеера.</div><li class="b-translator__item active" data-translator_id="1" title="Тестовый перевод" data-camrip="0" data-ad="0" data-director="0"></li><div class="hd-label-row"><input value="1"><label>Избранное</label></div>'''
 
@@ -32,7 +36,24 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers(); self.wfile.write(data)
     def do_GET(self):
         path = urllib.parse.urlsplit(self.path).path
-        if path == '/video.mp4': self.send(Path('/tmp/lumenkot-smoke.mp4').read_bytes(), 'video/mp4')
+        if path == '/hls-control':
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            with HLS_LOCK:
+                if 'blocked' in query: HLS_STATE['blocked'] = query['blocked'][0] == '1'
+                state = dict(HLS_STATE)
+            self.send(state)
+        elif path.startswith('/hls/'):
+            with HLS_LOCK:
+                HLS_STATE['requests'] += 1
+                blocked = HLS_STATE['blocked']
+            file = (HLS_ROOT/path.removeprefix('/hls/')).resolve()
+            if blocked:
+                self.send_error(503, 'HLS network disabled by fixture test')
+            elif not file.is_relative_to(HLS_ROOT.resolve()) or not file.is_file():
+                self.send_error(404)
+            else:
+                self.send(file.read_bytes(), 'application/vnd.apple.mpegurl' if file.suffix == '.m3u8' else 'video/mp2t')
+        elif path == '/video.mp4': self.send(Path('/tmp/lumenkot-smoke.mp4').read_bytes(), 'video/mp4')
         elif path == '/poster.png': self.send((Path(__file__).resolve().parents[1]/'app/src/main/res/drawable/app_icon.png').read_bytes(), 'image/png')
         elif path.startswith('/series/') and path.endswith('.html'): self.send(FILM.replace('video.movie', 'video.tv_show')+SEASONS+EPISODES)
         elif path.endswith('.html'): self.send(FILM)

@@ -25,11 +25,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.ArrayDeque
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class MainActivity : ComponentActivity() {
     private lateinit var settings: Settings
     private lateinit var api: RezkaApi
@@ -49,6 +51,11 @@ class MainActivity : ComponentActivity() {
     private var selectionDialog: VideoSelectionDialog?=null
     private var settingsScreen: SettingsScreen?=null
     private var showingSettings=false
+    private var downloadActions: AlertDialog?=null
+    private var downloadPreparation: AlertDialog?=null
+    private var downloadJob: Job?=null
+    private var downloadsPoll: Job?=null
+    private val downloadNotifications=registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
     private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { search(it) }
     }
@@ -60,18 +67,23 @@ class MainActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object: OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { if(back.isEmpty()) finish() else { current=back.removeLast(); current?.invoke() } }
         })
-        if(savedInstanceState?.getBoolean("settings")==true) preferences() else when(settings.prefs.getString("initialRoute","home")) {
+        if(intent.getBooleanExtra("showDownloads",false)) downloads() else if(savedInstanceState?.getBoolean("settings")==true) preferences() else when(settings.prefs.getString("initialRoute","home")) {
             "search" -> search();"bookmarks" -> bookmarks();"history" -> history();"account" -> account();else -> home()
         }
-        if(savedInstanceState?.getBoolean("settings")!=true) intent.data?.let { openLink(it.toString()) }
+        if(!intent.getBooleanExtra("showDownloads",false) && savedInstanceState?.getBoolean("settings")!=true) intent.data?.let { openLink(it.toString()) }
+    }
+    override fun onStart() {
+        super.onStart()
+        if(settings.prefs.getBoolean("hasHlsDownloads",false)) runCatching {androidx.media3.exoplayer.offline.DownloadService.start(this,LumenDownloadService::class.java)}
+            .onFailure {toast("Для продолжения загрузки откройте раздел «Загрузки»")}
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent);setIntent(intent)
-        intent.data?.let {selectionDialog?.dismiss();settingsScreen?.dismiss();openLink(it.toString())}
+        if(intent.getBooleanExtra("showDownloads",false)) downloads() else intent.data?.let {selectionDialog?.dismiss();settingsScreen?.dismiss();openLink(it.toString())}
     }
     override fun onResume() {super.onResume();if(refreshAfterPlayer) {refreshAfterPlayer=false;current?.invoke()}}
     override fun onSaveInstanceState(outState: Bundle) {outState.putBoolean("settings",showingSettings);super.onSaveInstanceState(outState)}
-    override fun onDestroy() {selectionDialog?.dismiss();settingsScreen?.dismiss();super.onDestroy()}
+    override fun onDestroy() {selectionDialog?.dismiss();settingsScreen?.dismiss();downloadActions?.dismiss();downloadPreparation?.dismiss();super.onDestroy()}
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun text(value: String, size: Float = 16f, color: Int = foreground) = TextView(this).apply {
         text=value; textSize=size; setTextColor(color); setPadding(dp(4),dp(5),dp(4),dp(5))
@@ -99,6 +111,7 @@ class MainActivity : ComponentActivity() {
         setOnFocusChangeListener { _,focused -> background=GradientDrawable().apply {setColor(if(focused) tileBase else Color.TRANSPARENT);cornerRadius=dp(24).toFloat()} }
     }
     private fun shell(title: String) {
+        downloadsPoll?.cancel();downloadActions?.dismiss()
         showingSettings=title=="Настройки"
         selectionDialog?.dismiss();settingsScreen?.dismiss()
         generation++
@@ -334,7 +347,7 @@ class MainActivity : ComponentActivity() {
         else select("Добавить / убрать закладку",f.bookmarks.map {it.title}) {i->load({api.bookmark(f.card.id,f.bookmarks[i].id)}) {toast("Закладка обновлена")}}
     }
     private fun chooseVoice(f: Film, download: Boolean) {
-        if(selectionDialog?.isShowing==true) return
+        if(selectionDialog?.isShowing==true || downloadActions?.isShowing==true || downloadJob?.isActive==true) return
         if(f.restricted.isNotBlank()) { toast(f.restricted);return }
         selectionDialog=VideoSelectionDialog(this,api,f,lifecycleScope,download) { v,season,episode,seasons,video ->
             deliverVideo(f,v,season,episode,download,seasons,video)
@@ -343,7 +356,7 @@ class MainActivity : ComponentActivity() {
     private fun deliverVideo(f: Film,v: Voice,s: String,e: String,download: Boolean,seasons: List<Season>,video: Video) {
             val stream=PlaybackQuality.preferred(video,settings.quality)
             if(stream==null) {toast(if(video.streams.any {it.premium}) PlaybackQuality.premiumMessage() else "Потоки недоступны");return}
-                if(download) enqueue(f,stream,s,e,video.subtitles) else {
+                if(download) showDownloadActions(f,v,stream,s,e,video.subtitles) else {
                     settings.history(f.card)
                     val payload=JSONObject().put("title",f.card.title).put("subtitle",f.card.info).put("filmUrl",f.card.url).put("film",f.card.id).put("voice",v.id).put("season",s).put("episode",e).put("url",stream.url).put("quality",stream.quality).put("premium",stream.premium)
                     payload.put("seasons",JSONArray(seasons.map { season -> JSONObject().put("id",season.id).put("title",season.title).put("episodes",JSONArray(season.episodes.map { JSONObject().put("id",it.id).put("title",it.title) })) }))
@@ -428,10 +441,42 @@ class MainActivity : ComponentActivity() {
             settingsScreen!!.render(body)
         })
     }
-    private fun enqueue(f: Film,stream: Stream,s: String,e: String,subtitles: List<Subtitle>) {
-        if(stream.url.contains(".m3u8")) { toast("Для загрузки выберите MP4; HLS предназначен для просмотра");return }
+    private fun showDownloadActions(f: Film,voice: Voice,stream: Stream,s: String,e: String,subtitles: List<Subtitle>) {
+        if(downloadActions?.isShowing==true || downloadJob?.isActive==true) return
+        downloadActions=AlertDialog.Builder(this).setTitle("${f.card.title} · ${stream.quality}")
+            .setItems(arrayOf("Скачать","Поделиться ссылкой")) {_,i ->
+                if(i==0) startDownload(f,voice,stream,s,e,subtitles) else shareStream(stream.url)
+            }.setNegativeButton("Отмена",null).show()
+    }
+    private fun shareStream(url: String) {
+        runCatching {startActivity(Intent.createChooser(HlsDownloads.shareIntent(url),"Поделиться ссылкой"))}.onFailure {toast("Нет приложения для отправки ссылки")}
+    }
+    private fun startDownload(f: Film,voice: Voice,stream: Stream,s: String,e: String,subtitles: List<Subtitle>) {
+        if(downloadJob?.isActive==true) return
+        downloadPreparation=AlertDialog.Builder(this).setMessage("Подготовка загрузки…").setView(ProgressBar(this))
+            .setNegativeButton("Отмена") {_,_ ->downloadJob?.cancel()}.setOnCancelListener {downloadJob?.cancel()}.show()
+        downloadJob=lifecycleScope.launch {
+            try {
+                val repository=HlsDownloads.get(this@MainActivity)
+                val request=withContext(Dispatchers.IO) {
+                    if(HlsDownloadPlan.isHls(stream.url,repository.networkFactory(api.absolute(f.card.url)))) repository.prepare(f,voice,s,e,stream,subtitles) else null
+                }
+                if(request==null) enqueueMp4(f,voice,stream,s,e,subtitles) else {
+                    repository.add(this@MainActivity,request)
+                    toast("Загрузка HLS добавлена. Прогресс — в разделе «Загрузки».")
+                    if(android.os.Build.VERSION.SDK_INT>=33 && androidx.core.content.ContextCompat.checkSelfPermission(this@MainActivity,android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED && !settings.prefs.getBoolean("hlsNotificationsAsked",false)) {
+                        settings.prefs.edit().putBoolean("hlsNotificationsAsked",true).apply();downloadNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+            } catch(e: CancellationException) {throw e} catch(e: Exception) {
+                val denied=generateSequence<Throwable>(e) {it.cause}.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().firstOrNull()
+                toast(if(denied!=null) HlsDownloads.get(this@MainActivity).errorMessage(e) else e.message ?: "Не удалось начать загрузку")
+            } finally {downloadPreparation?.dismiss()}
+        }
+    }
+    private fun enqueueMp4(f: Film,voice: Voice,stream: Stream,s: String,e: String,subtitles: List<Subtitle>) {
         runCatching {
-            val filename=(f.card.title+if(e.isNotBlank()) " S${s}E${e}" else "").replace(Regex("[^\\p{L}\\p{N} ._-]"),"_")+".mp4"
+            val filename=(f.card.title+(if(e.isNotBlank()) " S${s}E${e}" else "")+" ${voice.id} ${stream.quality}").replace(Regex("[^\\p{L}\\p{N} ._-]"),"_")+".mp4"
             val folders=getExternalFilesDirs("downloads").filterNotNull()
             val folder=folders.getOrElse(settings.prefs.getInt("downloadStorage",0)) { folders.first() }.apply { mkdirs() }
             val request=DownloadManager.Request(Uri.parse(stream.url)).setTitle(f.card.title).setDescription(stream.quality).setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED).setDestinationUri(Uri.fromFile(java.io.File(folder,filename)))
@@ -463,7 +508,25 @@ class MainActivity : ComponentActivity() {
             shell("Загрузки");body.addView(button("Обновить") { current?.invoke() })
             val manager=getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val ids=settings.prefs.getStringSet("downloads",emptySet())!!.mapNotNull { it.toLongOrNull() }
-            if(ids.isEmpty()) note("Загрузок пока нет. Откройте фильм и выберите «Скачать».")
+            val empty=text("Загрузок пока нет. Откройте фильм и выберите «Скачать».",15f,muted);body.addView(empty)
+            val hls=panel();body.addView(hls)
+            val widgets=mutableMapOf<String,HlsDownloadRow>();val screen=generation
+            downloadsPoll=lifecycleScope.launch {
+                val repository=HlsDownloads.get(this@MainActivity)
+                lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                while(isActive && screen==generation) {
+                    try {
+                        val stored=withContext(Dispatchers.IO) {repository.list()}.associateBy {it.request.id}
+                        val current=stored+repository.manager.currentDownloads.associateBy {it.request.id}
+                        val checkAssets=current.values.filter {it.state==androidx.media3.exoplayer.offline.Download.STATE_COMPLETED && (widgets[it.request.id]?.missingAssets ?: -1)<0}
+                        val missing=withContext(Dispatchers.IO) {checkAssets.associate {it.request.id to runCatching {repository.missingAssetCount(it.request)}.getOrDefault(-1)}}
+                        empty.visibility=if(ids.isEmpty() && current.isEmpty()) View.VISIBLE else View.GONE
+                        updateHlsRows(hls,current.values.sortedByDescending {it.startTimeMs},widgets,repository,missing)
+                    } catch(e: CancellationException) {throw e} catch(e: Exception) {empty.text="Не удалось прочитать загрузки. Проверьте накопитель.";empty.visibility=View.VISIBLE}
+                    delay(1000)
+                }
+                }
+            }
             ids.forEach { id -> manager.query(DownloadManager.Query().setFilterById(id)).use { c ->
                 if(c.moveToFirst()) {
                     val title=c.getString(c.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE));val status=c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
@@ -474,12 +537,59 @@ class MainActivity : ComponentActivity() {
                     if(status==DownloadManager.STATUS_SUCCESSFUL) body.addView(button("▶ Открыть") { manager.getUriForDownloadedFile(id)?.let { uri ->
                         val offline=JSONArray()
                         for(i in 0 until subs.length()) { val sub=subs.getJSONObject(i);val subUri=manager.getUriForDownloadedFile(sub.getLong("id"));if(subUri!=null) offline.put(JSONObject(sub.toString()).put("url",subUri.toString())) }
-                        openPlayer(JSONObject().put("title",title).put("url",uri.toString()).put("subtitles",offline))
+                        openPlayer(JSONObject().put("title",title).put("url",uri.toString()).put("subtitles",offline).put("offline",true))
                     } })
                     body.addView(button("Удалить") { AlertDialog.Builder(this).setMessage("Удалить загрузку и файл?").setPositiveButton("Удалить") { _,_ -> val group=mutableListOf(id);for(i in 0 until subs.length()) group.add(subs.getJSONObject(i).getLong("id"));if(metadata.has("poster")) group.add(metadata.getLong("poster"));manager.remove(*group.toLongArray());settings.prefs.edit().remove("download:$id").putStringSet("downloads",ids.filter { it!=id }.map { it.toString() }.toSet()).apply();current?.invoke() }.setNegativeButton("Отмена",null).show() })
                 }
             } }
         })
+    }
+    private data class HlsDownloadRow(val root: LinearLayout,val status: TextView,val actions: LinearLayout,var state: Int=-1,var missingAssets: Int=-1)
+    private fun updateHlsRows(parent: LinearLayout,downloads: List<androidx.media3.exoplayer.offline.Download>,rows: MutableMap<String,HlsDownloadRow>,repository: HlsDownloads,missing: Map<String,Int>) {
+        for(id in rows.keys.toList()) if(downloads.none {it.request.id==id}) {parent.removeView(rows.remove(id)!!.root)}
+        downloads.forEach {download ->
+            val request=download.request;val metadata=HlsDownloads.metadata(request)
+            val row=rows.getOrPut(request.id) {
+                val root=panel();root.addView(text(metadata.optString("title"),19f))
+                val episode=if(metadata.optString("episode").isBlank()) "" else " · S${metadata.optString("season")}E${metadata.optString("episode")}"
+                root.addView(text("HLS · ${metadata.optString("quality")} · ${metadata.optString("voiceTitle")}$episode",14f,muted))
+                val status=text("");root.addView(status)
+                val actions=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL};root.addView(actions);parent.addView(root)
+                HlsDownloadRow(root,status,actions)
+            }
+            missing[request.id]?.let {row.missingAssets=it}
+            val amount=java.lang.String.format(java.util.Locale.getDefault(),"%.1f МБ",download.bytesDownloaded/1048576.0)
+            row.status.text=when(download.state) {
+                androidx.media3.exoplayer.offline.Download.STATE_COMPLETED -> if(row.missingAssets<0) "Накопитель недоступен" else "Готово · $amount"+if(row.missingAssets>0) " · Часть дополнительных файлов недоступна" else ""
+                androidx.media3.exoplayer.offline.Download.STATE_FAILED -> settings.prefs.getString("hlsError:${request.id}","Не удалось скачать видео")
+                androidx.media3.exoplayer.offline.Download.STATE_STOPPED -> "Приостановлено · $amount"
+                androidx.media3.exoplayer.offline.Download.STATE_REMOVING -> "Удаление…"
+                else -> if(repository.manager.notMetRequirements!=0) "Ожидание сети · $amount" else if(download.percentDownloaded>=0) "${download.percentDownloaded.toInt().coerceAtMost(99)}% · $amount" else "Загрузка… · $amount"
+            }
+            if(row.state!=download.state) {
+                row.state=download.state;row.actions.removeAllViews()
+                when(download.state) {
+                    androidx.media3.exoplayer.offline.Download.STATE_COMPLETED -> row.actions.addView(button("▶ Открыть") {openOfflineHls(request.id)})
+                    androidx.media3.exoplayer.offline.Download.STATE_STOPPED -> row.actions.addView(button("Продолжить загрузку") {repository.resume(this,request.id)})
+                    androidx.media3.exoplayer.offline.Download.STATE_FAILED -> {
+                        row.actions.addView(button("Повторить") {repository.retry(this,request)})
+                        if(metadata.optString("filmUrl").isNotBlank()) row.actions.addView(button("Выбрать видео заново") {film(metadata.getString("filmUrl"))})
+                    }
+                    androidx.media3.exoplayer.offline.Download.STATE_REMOVING -> return@forEach
+                    else -> row.actions.addView(button("Приостановить") {repository.pause(this,request.id)})
+                }
+                row.actions.addView(button("Поделиться ссылкой") {shareStream(request.uri.toString())})
+                row.actions.addView(button("Удалить") {AlertDialog.Builder(this).setMessage("Удалить загрузку и сохранённое видео?").setPositiveButton("Удалить") {_,_ ->runCatching {repository.remove(this,request.id)}.onFailure {toast(it.message ?: "Проверьте накопитель")}}.setNegativeButton("Отмена",null).show()})
+            }
+        }
+    }
+    private fun openOfflineHls(id: String) {
+        lifecycleScope.launch {
+            try {
+                val payload=withContext(Dispatchers.IO) {val repository=HlsDownloads.get(this@MainActivity);repository.offlinePayload(repository.offlineRequest(id))}
+                openPlayer(payload)
+            } catch(e: CancellationException) {throw e} catch(e: Exception) {toast(e.message ?: "Не удалось открыть загрузку")}
+        }
     }
     private fun external(url: String) { runCatching { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(url))) }.onFailure { toast("Нет приложения для открытия ссылки") } }
 }

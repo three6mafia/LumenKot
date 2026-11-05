@@ -58,6 +58,7 @@ class PlayerActivity: ComponentActivity() {
     private lateinit var data: JSONObject
     private lateinit var settings: Settings
     private lateinit var api: RezkaApi
+    private var offlineRequest: androidx.media3.exoplayer.offline.DownloadRequest?=null
     companion object {
         const val PIP_PLAY_PAUSE_ACTION="com.lumenkot.app.PIP_PLAY_PAUSE"
         const val PIP_PREVIOUS_ACTION="com.lumenkot.app.PIP_PREVIOUS"
@@ -118,6 +119,9 @@ class PlayerActivity: ComponentActivity() {
         data=runCatching { JSONObject(savedInstanceState?.getString("media") ?: intent.getStringExtra("media") ?: "{}") }.getOrElse { finish();return }
         if(data.optString("url").isBlank()) { finish();return }
         settings=Settings(this);api=RezkaApi(settings);cloud=CloudProgress(this,settings,api)
+        if(data.optString("offlineHls").isNotBlank()) {
+            offlineRequest=runCatching {HlsDownloads.get(this).offlineRequest(data.getString("offlineHls"))}.getOrElse {Toast.makeText(this,it.message ?: "Загрузка недоступна",Toast.LENGTH_LONG).show();finish();return}
+        }
         androidx.core.content.ContextCompat.registerReceiver(this,pipReceiver,IntentFilter(PIP_PLAY_PAUSE_ACTION).apply {addAction(PIP_PREVIOUS_ACTION);addAction(PIP_NEXT_ACTION);addAction(PIP_CLOSE_ACTION)},androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered=true
         position=savedInstanceState?.getLong("position") ?: settings.prefs.getLong(key,0)
@@ -219,6 +223,7 @@ class PlayerActivity: ComponentActivity() {
         androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply { hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE }
     }
     private fun media(): MediaItem {
+        offlineRequest?.let {return HlsDownloads.get(this).offlineMediaItem(it).buildUpon().setMediaId(key).build()}
         val b=MediaItem.Builder().setUri(data.getString("url")).setMediaId(key)
         val subtitles=data.optJSONArray("subtitles") ?: JSONArray()
         b.setSubtitleConfigurations((0 until subtitles.length()).map { i ->
@@ -236,7 +241,7 @@ class PlayerActivity: ComponentActivity() {
         if(::player.isInitialized && !released) return
         if(::data.isInitialized && ::surface.isInitialized) {
             val http=OkHttpDataSource.Factory(api.client.newBuilder().callTimeout(0,java.util.concurrent.TimeUnit.MILLISECONDS).build()).setDefaultRequestProperties(api.headers())
-            val sources=DefaultDataSource.Factory(this,http)
+            val sources: androidx.media3.datasource.DataSource.Factory=offlineRequest?.let {HlsDownloads.get(this).cacheFactory(it,true)} ?: DefaultDataSource.Factory(this,http)
             val builder=ExoPlayer.Builder(this).setMediaSourceFactory(DefaultMediaSourceFactory(sources)).setSeekBackIncrementMs(settings.prefs.getInt("seekSeconds",10)*1000L).setSeekForwardIncrementMs(settings.prefs.getInt("seekSeconds",10)*1000L)
             val buffer=settings.prefs.getInt("bufferSeconds",0)*1000
             if(buffer>0) builder.setLoadControl(androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(minOf(15000,buffer),buffer,minOf(2500,buffer),minOf(5000,buffer)).build())
@@ -278,7 +283,7 @@ class PlayerActivity: ComponentActivity() {
             }
             player.setMediaItem(media(),position);player.setPlaybackSpeed(settings.prefs.getFloat("speed",1f));player.prepare();player.playWhenReady=playing
             progressJob=lifecycleScope.launch {
-                if(settings.prefs.getBoolean("cloudProgress",false)) {
+                if(!data.optBoolean("offline") && settings.prefs.getBoolean("cloudProgress",false)) {
                     val remote=withContext(Dispatchers.IO) { runCatching { cloud.restore(data) }.getOrNull() }
                     if(remote!=null && !released) player.seekTo(remote)
                 }
@@ -288,7 +293,7 @@ class PlayerActivity: ComponentActivity() {
                         val at=player.currentPosition;val duration=player.duration
                         saveProgress()
                         val snapshot=JSONObject(data.toString())
-                        withContext(Dispatchers.IO) { runCatching { cloud.save(snapshot,at,duration) } }
+                        if(!data.optBoolean("offline")) withContext(Dispatchers.IO) { runCatching { cloud.save(snapshot,at,duration) } }
                     }
                 }
             }
@@ -301,6 +306,7 @@ class PlayerActivity: ComponentActivity() {
     }
     internal fun showPlaybackError(error: PlaybackException) {
         if(released || isFinishing || isDestroyed || !lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return
+        if(data.optBoolean("offline")) {premiumFailure=false;errorView.text="Сохранённое видео недоступно. Проверьте накопитель или повторите скачивание в разделе «Загрузки».";errorView.visibility=View.VISIBLE;return}
         val denied=generateSequence<Throwable>(error) {it.cause}.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().any {it.responseCode==401 || it.responseCode==403}
         premiumFailure=denied && (data.optBoolean("premium") || data.optString("quality")=="1080p Ultra")
         errorView.text=if(premiumFailure) "Сервис отказал в доступе к ${data.optString("quality")}.\n"+PlaybackQuality.premiumMessage()+"\nНажмите, чтобы выбрать другое качество."
@@ -313,10 +319,12 @@ class PlayerActivity: ComponentActivity() {
         // Expanding PiP may deliver an intent without new media. Keep the current session.
         if(next==null || next.optString("url").isBlank()) return
         setIntent(intent)
-        val same=listOf("film","voice","season","episode","url").all {data.optString(it)==next.optString(it)}
+        val same=listOf("film","voice","season","episode","url","offline","offlineHls").all {data.optString(it)==next.optString(it)}
         if(same) {updatePipParams();return}
         releasePlayback()
-        data=next;position=settings.prefs.getLong(key,0);playing=true;controlsLocked=false;premiumFailure=false
+        data=next;offlineRequest=null
+        if(data.optString("offlineHls").isNotBlank()) offlineRequest=runCatching {HlsDownloads.get(this).offlineRequest(data.getString("offlineHls"))}.getOrElse {Toast.makeText(this,it.message ?: "Загрузка недоступна",Toast.LENGTH_LONG).show();finish();return}
+        position=settings.prefs.getLong(key,0);playing=true;controlsLocked=false;premiumFailure=false
         buildUi();startPlayback()
     }
     private fun chooseVideoQuality() {
@@ -551,7 +559,7 @@ class PlayerActivity: ComponentActivity() {
         settings.prefs.edit().putLong(key,at).apply()
         val film=data.optString("film")
         WatchProgress(settings.prefs).record(film,data.optString("voice"),data.optString("season"),data.optString("episode"),at)
-        WatchProgress.saveToWebsite(api,film,data.optString("voice"),data.optString("season"),data.optString("episode"),at)
+        if(!data.optBoolean("offline")) WatchProgress.saveToWebsite(api,film,data.optString("voice"),data.optString("season"),data.optString("episode"),at)
     }
     private fun releasePlayback() {
         qualityDialog?.dismiss();optionsDialog?.dismiss();selectionDialog?.dismiss()

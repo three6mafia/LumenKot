@@ -7,8 +7,8 @@ android {
         minSdk = 24
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 4
-        versionName = "1.0.3-test"
+        versionCode = 5
+        versionName = "1.0.4-test"
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -33,6 +33,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.6.1")
     implementation("androidx.media3:media3-ui:1.6.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.6.1")
+    implementation("androidx.media3:media3-database:1.6.1")
     implementation("com.google.firebase:firebase-firestore:25.1.4")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")

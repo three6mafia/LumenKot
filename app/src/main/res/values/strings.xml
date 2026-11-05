@@ -1,0 +1,4 @@
+<resources>
+    <string name="download_channel">Загрузки видео</string>
+    <string name="download_notification">LumenKot · загрузка для офлайн-просмотра</string>
+</resources>
