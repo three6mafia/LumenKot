@@ -1,0 +1,292 @@
+--------- beginning of main
+11-05 17:04:19.895  2935  2976 W ProvidersCache: Timeout executing update task!
+11-05 17:04:38.977  2935  2979 W ProvidersCache: Failed to load some roots from com.android.mtp.documents
+11-05 17:04:38.977  2935  2979 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.mtp.documents
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:04:38.977  2935  2979 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:04:41.517  2935  2935 W ProvidersCache: Timeout waiting for first update
+11-05 17:04:57.493  2935  2980 W ProvidersCache: Failed to load some roots from com.android.providers.downloads.documents
+11-05 17:04:57.493  2935  2980 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.providers.downloads.documents
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:04:57.493  2935  2980 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:05:09.348  2935  2978 I ProvidersCache: Provider returned no roots. Possibly naughty: com.android.externalstorage.documents
+11-05 17:05:32.080  2935  2984 W ProvidersCache: Failed to load some roots from com.android.providers.media.documents
+11-05 17:05:32.080  2935  2984 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.providers.media.documents
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:05:32.080  2935  2984 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: Failed to load some roots from com.google.android.apps.docs.storage
+11-05 17:05:46.917  2935  2935 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.google.android.apps.docs.storage
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadStoppedAuthorities(ProvidersCache.java:272)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.getMatchingRootsBlocking(ProvidersCache.java:453)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at com.android.documentsui.picker.LastAccessedStorage$RuntimeLastAccessedStorage.getLastAccessed(LastAccessedStorage.java:67)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at com.android.documentsui.picker.ActionHandler.initLoadLastAccessedStack(ActionHandler.java:260)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at com.android.documentsui.picker.ActionHandler.initLocation(ActionHandler.java:152)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at com.android.documentsui.picker.PickActivity.onCreate(PickActivity.java:169)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.app.Activity.performCreate(Activity.java:9002)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.app.Activity.performCreate(Activity.java:8980)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1526)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:4030)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:4235)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.app.servertransaction.LaunchActivityItem.execute(LaunchActivityItem.java:112)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.app.servertransaction.TransactionExecutor.executeNonLifecycleItem(TransactionExecutor.java:174)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.app.servertransaction.TransactionExecutor.executeTransactionItems(TransactionExecutor.java:109)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.app.servertransaction.TransactionExecutor.execute(TransactionExecutor.java:81)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2636)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.os.Handler.dispatchMessage(Handler.java:107)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.os.Looper.loopOnce(Looper.java:232)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.os.Looper.loop(Looper.java:317)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at android.app.ActivityThread.main(ActivityThread.java:8705)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at java.lang.reflect.Method.invoke(Native Method)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:580)
+11-05 17:05:46.917  2935  2935 W ProvidersCache: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:886)
+11-05 17:05:48.398  2935  2935 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:05:48.413  2935  2935 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:05:48.455  2935  3308 I ProvidersCache: Provider returned no roots. Possibly naughty: com.android.externalstorage.documents
+11-05 17:05:49.051  2935  3313 I ProvidersCache: Provider returned no roots. Possibly naughty: com.android.externalstorage.documents
+11-05 17:05:50.125  2935  3314 W ProvidersCache: Failed to load some roots from com.android.mtp.documents
+11-05 17:05:50.125  2935  3314 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.mtp.documents
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:05:50.125  2935  3314 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:06:03.919  2935  2976 W ProvidersCache: Timeout executing update task!
+11-05 17:06:07.401  2935  3316 W ProvidersCache: Failed to load some roots from com.android.providers.downloads.documents
+11-05 17:06:07.401  2935  3316 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.providers.downloads.documents
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:06:07.401  2935  3316 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: Failed to load some roots from com.google.android.apps.docs.storage
+11-05 17:06:22.681  2935  3317 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.google.android.apps.docs.storage
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:06:22.681  2935  3317 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: Failed to load some roots from com.android.providers.media.documents
+11-05 17:06:23.901  2935  3319 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.providers.media.documents
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:06:23.901  2935  3319 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:06:24.733  2935  2935 I ProvidersCache: Updating roots due to change on user 0at content://com.android.providers.media.documents/root
+11-05 17:06:24.785  2935  2935 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:06:24.829  2935  2935 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:06:25.435  2935  3308 I ProvidersCache: Provider returned no roots. Possibly naughty: com.android.externalstorage.documents
+11-05 17:06:25.932  2935  3411 I ProvidersCache: Provider returned no roots. Possibly naughty: com.android.externalstorage.documents
+11-05 17:06:30.613  2935  2935 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:06:40.611  2935  2976 W ProvidersCache: Timeout executing update task!
+11-05 17:06:44.403  2935  2935 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:06:46.601  2935  3412 W ProvidersCache: Failed to load some roots from com.android.mtp.documents
+11-05 17:06:46.601  2935  3412 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.mtp.documents
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:06:46.601  2935  3412 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:08:14.901  3747  3769 I ProvidersCache: Provider returned no roots. Possibly naughty: com.android.externalstorage.documents
+11-05 17:08:19.685  3747  3767 W ProvidersCache: Timeout executing update task!
+11-05 17:08:30.853  3747  3770 W ProvidersCache: Failed to load some roots from com.android.mtp.documents
+11-05 17:08:30.853  3747  3770 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.mtp.documents
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:08:30.853  3747  3770 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:10:06.427  4275  4289 I ProvidersCache: Provider returned no roots. Possibly naughty: com.android.externalstorage.documents
+11-05 17:10:08.702  4275  4275 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:10:08.727  4275  4275 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:10:08.735  4275  4275 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:10:10.871  4275  4287 W ProvidersCache: Timeout executing update task!
+11-05 17:10:21.481  4275  4275 W ProvidersCache: Timeout waiting for first update
+11-05 17:10:22.931  4275  4291 W ProvidersCache: Failed to load some roots from com.android.providers.downloads.documents
+11-05 17:10:22.931  4275  4291 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.providers.downloads.documents
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:10:22.931  4275  4291 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: Failed to load some roots from com.android.mtp.documents
+11-05 17:10:34.563  4275  4290 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.mtp.documents
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:10:34.563  4275  4290 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: Failed to load some roots from com.google.android.apps.docs.storage
+11-05 17:12:16.727  4275  4292 W ProvidersCache: android.os.DeadObjectException
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at android.os.BinderProxy.transactNative(Native Method)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at android.os.BinderProxy.transact(BinderProxy.java:586)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at android.content.ContentProviderProxy.query(ContentProviderNative.java:493)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at android.content.ContentProviderClient.query(ContentProviderClient.java:196)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at android.content.ContentProviderClient.query(ContentProviderClient.java:178)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at android.content.ContentProviderClient.query(ContentProviderClient.java:168)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:366)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:12:16.727  4275  4292 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: Failed to load some roots from com.android.providers.media.documents
+11-05 17:12:38.942  4275  4294 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.providers.media.documents
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:12:38.942  4275  4294 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:12:40.187  4275  4717 I ProvidersCache: Provider returned no roots. Possibly naughty: com.android.externalstorage.documents
+11-05 17:12:55.459  4275  4287 W ProvidersCache: Timeout executing update task!
+11-05 17:13:38.563  4275  4728 I ProvidersCache: Provider returned no roots. Possibly naughty: com.google.android.apps.docs.storage
+11-05 17:13:53.720  4275  4726 W ProvidersCache: Failed to load some roots from com.android.mtp.documents
+11-05 17:13:53.720  4275  4726 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.mtp.documents
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:13:53.720  4275  4726 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)
+11-05 17:13:58.955  4275  4275 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:13:59.147  4275  4275 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:13:59.283  4275  4275 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:13:59.478  4275  4275 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:14:00.141  4275  4275 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:14:00.159  4275  4275 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:14:00.306  4275  4275 I ProvidersCache: Updating roots due to change on user 0at content://com.android.externalstorage.documents
+11-05 17:14:07.448  4275  4727 W ProvidersCache: Failed to load some roots from com.android.providers.downloads.documents
+11-05 17:14:07.448  4275  4727 W ProvidersCache: android.os.RemoteException: Failed to acquire provider for com.android.providers.downloads.documents
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow(DocumentsApplication.java:99)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.loadRootsForAuthority(ProvidersCache.java:365)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache.-$$Nest$mloadRootsForAuthority(ProvidersCache.java:0)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.handleDocumentsProvider(ProvidersCache.java:647)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.startSingleProviderUpdateTask(ProvidersCache.java:623)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.lambda$doInBackground$0(ProvidersCache.java:569)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask.$r8$lambda$mnJpmgdZARm40VapREkQeOExLF8(ProvidersCache.java:0)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at com.android.documentsui.roots.ProvidersCache$MultiProviderUpdateTask$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+11-05 17:14:07.448  4275  4727 W ProvidersCache: 	at java.lang.Thread.run(Thread.java:1012)

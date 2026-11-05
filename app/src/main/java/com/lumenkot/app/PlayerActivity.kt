@@ -146,7 +146,7 @@ class PlayerActivity: ComponentActivity() {
         root.verticalStart={volume ->beginSwipe(volume)}
         root.verticalChange={delta ->adjustSwipe(delta)}
         root.verticalEnd={root.removeCallbacks(hideSwipe);root.postDelayed(hideSwipe,700)}
-        toolbar=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL;setBackgroundColor(0x99000000.toInt());gravity=Gravity.CENTER_VERTICAL;setPadding(dp(16),dp(16),dp(16),0) }
+        toolbar=LinearLayout(this).apply { id=R.id.player_toolbar;orientation=LinearLayout.HORIZONTAL;setBackgroundColor(0x99000000.toInt());gravity=Gravity.CENTER_VERTICAL;setPadding(dp(16),dp(16),dp(16),0) }
         fun control(label: String, container: LinearLayout=toolbar, action: () -> Unit): ImageButton {
             return ImageButton(this).apply {
                 contentDescription=label;scaleType=android.widget.ImageView.ScaleType.FIT_CENTER;setImageDrawable(LumenIcon(label,Color.WHITE));setBackgroundColor(Color.TRANSPARENT);setPadding(dp(9),dp(9),dp(9),dp(9));setOnClickListener {if(!released && optionsDialog?.isShowing!=true && qualityDialog?.isShowing!=true && selectionDialog?.isShowing!=true) action()}
@@ -220,8 +220,20 @@ class PlayerActivity: ComponentActivity() {
             updatePipParams()
         }
         setContentView(root)
-        androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply { hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE }
+        restoreFullscreen()
     }
+    private fun restoreFullscreen() {
+        if(closing || (Build.VERSION.SDK_INT>=26 && isInPictureInPictureMode)) return
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window,false)
+        if(Build.VERSION.SDK_INT>=28) window.attributes=window.attributes.apply {layoutInDisplayCutoutMode=WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES}
+        androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply {
+            systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+        if(::root.isInitialized) {root.fitsSystemWindows=false;root.setPadding(0,0,0,0);androidx.core.view.ViewCompat.requestApplyInsets(root);root.requestLayout()}
+    }
+    override fun onWindowFocusChanged(hasFocus: Boolean) {super.onWindowFocusChanged(hasFocus);if(hasFocus) restoreFullscreen()}
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {super.onConfigurationChanged(newConfig);restoreFullscreen()}
     private fun media(): MediaItem {
         offlineRequest?.let {return HlsDownloads.get(this).offlineMediaItem(it).buildUpon().setMediaId(key).build()}
         val b=MediaItem.Builder().setUri(data.getString("url")).setMediaId(key)
@@ -241,7 +253,7 @@ class PlayerActivity: ComponentActivity() {
         if(::player.isInitialized && !released) return
         if(::data.isInitialized && ::surface.isInitialized) {
             val http=OkHttpDataSource.Factory(api.client.newBuilder().callTimeout(0,java.util.concurrent.TimeUnit.MILLISECONDS).build()).setDefaultRequestProperties(api.headers())
-            val sources: androidx.media3.datasource.DataSource.Factory=offlineRequest?.let {HlsDownloads.get(this).cacheFactory(it,true)} ?: DefaultDataSource.Factory(this,http)
+            val sources: androidx.media3.datasource.DataSource.Factory=offlineRequest?.let {HlsDownloads.get(this).offlineFactory(it)} ?: DefaultDataSource.Factory(this,http)
             val builder=ExoPlayer.Builder(this).setMediaSourceFactory(DefaultMediaSourceFactory(sources)).setSeekBackIncrementMs(settings.prefs.getInt("seekSeconds",10)*1000L).setSeekForwardIncrementMs(settings.prefs.getInt("seekSeconds",10)*1000L)
             val buffer=settings.prefs.getInt("bufferSeconds",0)*1000
             if(buffer>0) builder.setLoadControl(androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(minOf(15000,buffer),buffer,minOf(2500,buffer),minOf(5000,buffer)).build())
@@ -536,7 +548,7 @@ class PlayerActivity: ComponentActivity() {
         if(Build.VERSION.SDK_INT in 26..30 && ::player.isInitialized && !released && player.playWhenReady) enterPip(false)
     }
     override fun onPictureInPictureRequested(): Boolean = enterPip(false)
-    override fun onResume() {super.onResume();if(Build.VERSION.SDK_INT<26 || !isInPictureInPictureMode) pipActive=false;updatePipParams()}
+    override fun onResume() {super.onResume();if(Build.VERSION.SDK_INT<26 || !isInPictureInPictureMode) {pipActive=false;restoreFullscreen()};updatePipParams()}
     override fun onPause() {if(::root.isInitialized) root.resetGesture();setTemporarySpeed(false);super.onPause()}
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean,newConfig: android.content.res.Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode,newConfig)
@@ -545,12 +557,16 @@ class PlayerActivity: ComponentActivity() {
         if(closing) return
         if(::surface.isInitialized) {
             surface.useController=!isInPictureInPictureMode
-            toolbar.visibility=if(isInPictureInPictureMode) View.GONE else View.VISIBLE
             if(isInPictureInPictureMode) {
+                toolbar.visibility=View.GONE
                 setTemporarySpeed(false);root.resetGesture();root.removeCallbacks(hideSeek);hideSeek.run();root.removeCallbacks(hideSwipe);hideSwipe.run();surface.hideController()
                 window.attributes=window.attributes.apply {screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE}
             }
-            else {window.attributes=window.attributes.apply {screenBrightness=customBrightness};surface.showController();toolbar.visibility=View.VISIBLE}
+            else {
+                window.attributes=window.attributes.apply {screenBrightness=customBrightness}
+                restoreFullscreen();surface.showController();toolbar.visibility=if(surface.isControllerFullyVisible) View.VISIBLE else View.GONE
+                root.post {if(!closing && (Build.VERSION.SDK_INT<26 || !this.isInPictureInPictureMode)) restoreFullscreen()}
+            }
         }
     }
     private fun saveProgress() {

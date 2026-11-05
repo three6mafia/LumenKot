@@ -15,7 +15,7 @@ import android.widget.*
 class SettingsScreen(
     private val activity: Activity, private val settings: Settings,
     private val external: (String)->Unit, private val themeChanged: ()->Unit,
-    private val checkConnection: ()->Unit
+    private val checkConnection: ()->Unit,private val chooseDownloadFolder: ()->Unit={}
 ) {
     companion object {val groups=listOf("Интерфейс","Сетевые настройки","Загрузки","Плеер","О приложении")}
     private val prefs get()=settings.prefs
@@ -130,9 +130,13 @@ class SettingsScreen(
                 content.addView(row("Проверить соединение",action=checkConnection))
             }
             "Загрузки" -> {
+                val locations=DownloadLocations(activity)
+                content.addView(row("Папка загрузки",locations.label(),icon="Скачать",action=chooseDownloadFolder))
+                toggle("rememberDownloadPath","Всегда сохранять в эту папку",false,"Если выключено, место выбирается перед скачиванием")
+                if(locations.tree!=null) content.addView(row("Использовать папку приложения",action={locations.appFolder();renderGroup()}))
                 val dirs=activity.getExternalFilesDirs("downloads").filterNotNull()
                 val names=dirs.mapIndexed {i,_ ->if(i==0) "Внутренняя память" else "SD-карта $i"}
-                content.addView(row("Путь загрузок",names.getOrNull(prefs.getInt("downloadStorage",0)).orEmpty(),icon="Скачать") {choose("Путь загрузок",names,prefs.getInt("downloadStorage",0)) {prefs.edit().putInt("downloadStorage",it).apply()}})
+                if(locations.tree==null) content.addView(row("Хранилище приложения",names.getOrNull(prefs.getInt("downloadStorage",0)).orEmpty(),icon="Скачать") {choose("Хранилище приложения",names,prefs.getInt("downloadStorage",0)) {prefs.edit().putInt("downloadStorage",it).apply()}})
                 toggle("downloadSubtitles","Скачивать субтитры",true)
                 toggle("downloadPoster","Скачивать постер",true)
             }
@@ -165,4 +169,5 @@ class SettingsScreen(
         }
     }
     fun dismiss() {editor?.dismiss();dialog?.dismiss()}
+    fun refresh() {renderGroup()}
 }

@@ -66,10 +66,54 @@ class DownloadFlowTest {
         Robolectric.buildActivity(MainActivity::class.java).setup().use {c ->
             val dialog=menu(c.get(),server.url("/video.mp4?token=fixture").toString())
             dialog.listView.performItemClick(null,0,0)
+            val destination=ShadowAlertDialog.getLatestAlertDialog()
+            assertNotSame(dialog,destination)
+            destination.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
             val end=System.nanoTime()+5_000_000_000L
             while(System.nanoTime()<end && settings.prefs.getStringSet("downloads",emptySet())!!.isEmpty()) {shadowOf(Looper.getMainLooper()).idle();Thread.sleep(10)}
             assertEquals(1,settings.prefs.getStringSet("downloads",emptySet())!!.size)
             assertFalse(settings.prefs.getBoolean("hasHlsDownloads",false))
+        }
+    }
+    @Test fun folderIsAskedOnEachDownloadWhenRememberIsDisabled() {
+        Robolectric.buildActivity(MainActivity::class.java).setup().use {c ->
+            menu(c.get(),server.url("/video.mp4").toString()).listView.performItemClick(null,0,0)
+            val folder=ShadowAlertDialog.getLatestAlertDialog()
+            assertNotNull(folder.findViewById<android.view.View>(R.id.pick_download_folder))
+            assertFalse(folder.findViewById<android.widget.Switch>(R.id.remember_download_path).isChecked)
+            folder.getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
+            assertTrue(settings.prefs.getStringSet("downloads",emptySet())!!.isEmpty())
+            menu(c.get(),server.url("/video.mp4").toString()).listView.performItemClick(null,0,0)
+            assertNotSame(folder,ShadowAlertDialog.getLatestAlertDialog())
+            ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
+        }
+    }
+    @Test fun rememberedAppFolderSkipsTheLocationPromptAndDisablingItRestoresThePrompt() {
+        settings.prefs.edit().putBoolean("rememberDownloadPath",true).commit()
+        Robolectric.buildActivity(MainActivity::class.java).setup().use {c ->
+            val menu=menu(c.get(),server.url("/video.mp4").toString());menu.listView.performItemClick(null,0,0)
+            val end=System.nanoTime()+5_000_000_000L
+            while(System.nanoTime()<end && settings.prefs.getStringSet("downloads",emptySet())!!.isEmpty()) {shadowOf(Looper.getMainLooper()).idle();Thread.sleep(10)}
+            assertEquals(1,settings.prefs.getStringSet("downloads",emptySet())!!.size)
+            settings.prefs.edit().putBoolean("rememberDownloadPath",false).commit()
+            menu(c.get(),server.url("/second.mp4").toString()).listView.performItemClick(null,0,0)
+            assertNotNull(ShadowAlertDialog.getLatestAlertDialog().findViewById<android.view.View>(R.id.pick_download_folder))
+            ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
+        }
+    }
+    @Test fun recreatingTheActivityKeepsThePendingDownloadAndUnconfirmedRememberChoice() {
+        Robolectric.buildActivity(MainActivity::class.java).setup().use {c ->
+            menu(c.get(),server.url("/video.mp4").toString()).listView.performItemClick(null,0,0)
+            ShadowAlertDialog.getLatestAlertDialog().findViewById<android.widget.Switch>(R.id.remember_download_path).isChecked=true
+            assertFalse(DownloadLocations(c.get()).always)
+            c.recreate()
+            val restored=ShadowAlertDialog.getLatestAlertDialog()
+            assertTrue(restored.findViewById<android.widget.Switch>(R.id.remember_download_path).isChecked)
+            assertTrue(settings.prefs.getStringSet("downloads",emptySet())!!.isEmpty())
+            restored.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+            val end=System.nanoTime()+5_000_000_000L
+            while(System.nanoTime()<end && settings.prefs.getStringSet("downloads",emptySet())!!.isEmpty()) {shadowOf(Looper.getMainLooper()).idle();Thread.sleep(10)}
+            assertTrue(DownloadLocations(c.get()).always);assertEquals(1,settings.prefs.getStringSet("downloads",emptySet())!!.size)
         }
     }
 }

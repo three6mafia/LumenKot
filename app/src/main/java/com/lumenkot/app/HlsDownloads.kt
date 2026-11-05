@@ -75,22 +75,25 @@ class HlsDownloads(context: Context,private val executor: Executor=Executors.new
     }
 
     /** Runs on IO, before submitting work to the foreground service. */
-    fun prepare(film: Film,voice: Voice,season: String,episode: String,stream: Stream,subtitles: List<Subtitle>): DownloadRequest {
+    fun prepare(film: Film,voice: Voice,season: String,episode: String,stream: Stream,subtitles: List<Subtitle>,tree: Uri?=null,progressive: Boolean=false): DownloadRequest {
         check(stream.available) {PlaybackQuality.premiumMessage(stream.quality)}
-        val roots=app.getExternalFilesDirs("downloads").filterNotNull()
-        val root=roots.getOrNull(settings.prefs.getInt("downloadStorage",0)) ?: throw IOException("Выбранный накопитель недоступен")
+        val locations=DownloadLocations(app)
+        if(tree!=null) locations.requireAccess(tree)
+        val root=locations.appRoot(tree)
         check(root.isDirectory || root.mkdirs()) {"Не удалось открыть папку загрузок"}
         val referer=api.absolute(film.card.url)
         val saveSubtitles=settings.prefs.getBoolean("downloadSubtitles",true)
-        val keys=HlsDownloadPlan.prepare(stream.url,stream.quality,saveSubtitles,networkFactory(referer))
+        val keys=if(progressive) emptyList() else HlsDownloadPlan.prepare(stream.url,stream.quality,saveSubtitles,networkFactory(referer))
+        val mime=if(progressive) MimeTypes.VIDEO_MP4 else MimeTypes.APPLICATION_M3U8
+        val id=contentId(film.card.id,voice.id,season,episode,stream.quality,if(tree==null) keys.joinToString() else "$mime|${keys.joinToString()}|$tree")
         val entries=if(saveSubtitles) subtitles.filter {it.url.startsWith("http://") || it.url.startsWith("https://")} else emptyList()
         val image=film.card.image.takeIf {settings.prefs.getBoolean("downloadPoster",true)}.orEmpty()
         val poster=when {image.isBlank()->"";image.startsWith("http")->image;image.startsWith("//")->"https:$image";else->Links.static+"/"+image.trimStart('/')}
         val data=JSONObject().put("title",film.card.title).put("film",film.card.id).put("filmUrl",referer).put("voice",voice.id).put("voiceTitle",voice.title)
             .put("season",season).put("episode",episode).put("quality",stream.quality).put("root",root.absolutePath).put("poster",poster)
             .put("subtitles",JSONArray(entries.map {JSONObject().put("title",it.title).put("url",it.url).put("language",it.language).put("default",it.default)}))
-        return DownloadRequest.Builder(contentId(film.card.id,voice.id,season,episode,stream.quality,keys.joinToString()),Uri.parse(stream.url))
-            .setMimeType(MimeTypes.APPLICATION_M3U8).setStreamKeys(keys).setData(data.toString().toByteArray(Charsets.UTF_8)).build()
+        if(tree!=null) data.put("treeUri",tree.toString()).put("folderName",TreeDownloadPackage.folderName(film.card.title+(if(episode.isNotBlank()) " S${season}E${episode}" else "")+" ${stream.quality}",id)).put("destination",locations.label(tree))
+        return DownloadRequest.Builder(id,Uri.parse(stream.url)).setMimeType(mime).setStreamKeys(keys).setData(data.toString().toByteArray(Charsets.UTF_8)).build()
     }
 
     @Synchronized private fun cache(root: String): SimpleCache {
@@ -109,20 +112,49 @@ class HlsDownloads(context: Context,private val executor: Executor=Executors.new
         // DownloadManager creates its downloader on the index thread. Open removable storage on
         // the download thread so a missing/ejected card becomes a failed job, not a dead queue.
         return DeferredHlsDownloader {
+            val target=metadata(request).optString("treeUri").takeIf {it.isNotBlank()}?.let {TreeDownloadPackage(app,request)}
+            if(target!=null && target.committed()) return@DeferredHlsDownloader object: Downloader {
+                override fun download(progressListener: Downloader.ProgressListener?) {purge(request);progressListener?.onProgress(C.LENGTH_UNSET.toLong(),0,100f)}
+                override fun remove() {target.remove();purge(request)}
+                override fun cancel() {}
+            }
             val factory=cacheFactory(request,false)
-            HlsBundleDownloader(DefaultDownloaderFactory(factory,executor).createDownloader(request),factory,cache(metadata(request).getString("root")),request.id,assetUrls(request))
+            val video=HlsBundleDownloader(DefaultDownloaderFactory(factory,executor).createDownloader(request),factory,cache(metadata(request).getString("root")),request.id,assetUrls(request))
+            if(target==null) video else object: Downloader {
+                @Volatile private var canceled=false
+                override fun download(progressListener: Downloader.ProgressListener?) {
+                    var downloaded=0L
+                    video.download {length,bytes,percent ->downloaded=bytes;progressListener?.onProgress(length,bytes,if(percent>=0) percent*.85f else percent)}
+                    target.export(cache(metadata(request).getString("root")),cacheFactory(request,true),{copied,total ->
+                        progressListener?.onProgress(C.LENGTH_UNSET.toLong(),downloaded,if(total>0) 85f+15f*copied/total else 100f)
+                    }) {canceled}
+                    purge(request)
+                }
+                override fun remove() {target.remove();video.remove()}
+                override fun cancel() {canceled=true;video.cancel()}
+            }
         }
+    }
+    private fun purge(request: DownloadRequest) {runCatching {val store=cache(metadata(request).getString("root"));store.keys.filter {it.startsWith("${request.id}|")}.forEach {store.removeResource(it)}}}
+    fun offlineFactory(request: DownloadRequest): DataSource.Factory=if(metadata(request).optString("treeUri").isNotBlank()) TreeDownloadPackage(app,request).factory() else cacheFactory(request,true)
+    fun completedCopy(request: DownloadRequest): DownloadRequest? {
+        val existing=index.getDownload(request.id) ?: return null
+        return existing.request.takeIf {existing.state==Download.STATE_COMPLETED && metadata(it).optString("treeUri").isNotBlank() && TreeDownloadPackage(app,it).committed()}
     }
     private fun assetUrls(request: DownloadRequest): List<String> {
         val data=metadata(request);val subtitles=data.optJSONArray("subtitles") ?: JSONArray()
         return ((0 until subtitles.length()).map {subtitles.getJSONObject(it).getString("url")}+data.optString("poster")).filter {it.isNotBlank()}.distinct()
     }
     fun isAssetComplete(request: DownloadRequest,url: String): Boolean {
+        if(metadata(request).optString("treeUri").isNotBlank()) return TreeDownloadPackage(app,request).isComplete(url)
         val store=cache(metadata(request).getString("root"));val key=keyFactory(request.id).buildCacheKey(DataSpec(Uri.parse(url)))
         val size=ContentMetadata.getContentLength(store.getContentMetadata(key))
         return size>=0 && store.isCached(key,0,size)
     }
-    fun missingAssetCount(request: DownloadRequest)=assetUrls(request).count {!isAssetComplete(request,it)}
+    fun missingAssetCount(request: DownloadRequest): Int {
+        val resources=if(metadata(request).optString("treeUri").isNotBlank()) TreeDownloadPackage(app,request).readIndex().getJSONObject("resources") else null
+        return assetUrls(request).count {if(resources!=null) resources.optJSONObject(it)?.optBoolean("complete")!=true else !isAssetComplete(request,it)}
+    }
     fun list(): List<Download> = index.getDownloads().use {cursor ->buildList {while(cursor.moveToNext()) add(cursor.download)}}
     fun add(context: Context,request: DownloadRequest) {
         DownloadService.sendAddDownload(context,LumenDownloadService::class.java,request,true)
@@ -133,19 +165,20 @@ class HlsDownloads(context: Context,private val executor: Executor=Executors.new
     fun resume(context: Context,id: String)=DownloadService.sendSetStopReason(context,LumenDownloadService::class.java,id,Download.STOP_REASON_NONE,true)
     fun remove(context: Context,id: String) {
         val request=index.getDownload(id)?.request ?: return
-        cache(metadata(request).getString("root"))
+        if(metadata(request).optString("treeUri").isNotBlank()) TreeDownloadPackage(app,request).requireRemovable() else cache(metadata(request).getString("root"))
         DownloadService.sendRemoveDownload(context,LumenDownloadService::class.java,id,true)
     }
 
     fun offlineRequest(id: String): DownloadRequest {
         val download=index.getDownload(id) ?: error("Загрузка не найдена")
         check(download.state==Download.STATE_COMPLETED) {"Дождитесь завершения загрузки"}
-        cache(metadata(download.request).getString("root"))
+        if(metadata(download.request).optString("treeUri").isNotBlank()) TreeDownloadPackage(app,download.request).readIndex() else cache(metadata(download.request).getString("root"))
         return download.request
     }
     fun offlinePayload(request: DownloadRequest): JSONObject {
         val data=metadata(request);val subtitles=data.optJSONArray("subtitles") ?: JSONArray()
-        val available=JSONArray((0 until subtitles.length()).map {subtitles.getJSONObject(it)}.filter {isAssetComplete(request,it.getString("url"))})
+        val resources=if(data.optString("treeUri").isNotBlank()) TreeDownloadPackage(app,request).readIndex().getJSONObject("resources") else null
+        val available=JSONArray((0 until subtitles.length()).map {subtitles.getJSONObject(it)}.filter {if(resources!=null) resources.optJSONObject(it.getString("url"))?.optBoolean("complete")==true else isAssetComplete(request,it.getString("url"))})
         return JSONObject().put("title",data.getString("title")).put("film",data.optString("film")).put("voice",data.optString("voice"))
             .put("season",data.optString("season")).put("episode",data.optString("episode")).put("quality",data.optString("quality"))
             .put("url",request.uri.toString()).put("offline",true).put("offlineHls",request.id).put("subtitles",available)

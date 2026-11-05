@@ -58,8 +58,15 @@ class PipPresentationTest {
             view.player=fake;view.setControllerAnimationEnabled(false)
             activity.onPictureInPictureModeChanged(true,Configuration())
             assertFalse(view.useController)
+            val root=view.parent as PlayerGestureLayout
+            root.setPadding(0,48,0,0)
             activity.onPictureInPictureModeChanged(false,Configuration())
             assertTrue(view.useController);assertTrue(view.isControllerFullyVisible)
+            assertEquals(0,root.paddingTop)
+            view.hideController()
+            assertEquals(View.GONE,activity.findViewById<View>(R.id.player_toolbar).visibility)
+            root.measure(View.MeasureSpec.makeMeasureSpec(640,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(360,View.MeasureSpec.EXACTLY))
+            root.layout(0,0,640,360);assertEquals(0,view.top);assertEquals(360,view.height)
             view.player=null;fake.release()
         }
     }

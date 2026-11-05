@@ -55,6 +55,19 @@ class MainActivity : ComponentActivity() {
     private var downloadPreparation: AlertDialog?=null
     private var downloadJob: Job?=null
     private var downloadsPoll: Job?=null
+    private var destinationDialog: AlertDialog?=null
+    private var pendingDownload: PendingDownload?=null
+    private var folderPurpose: String?=null
+    private var rememberDestination=false
+    private var destinationUnavailable=false
+    private val folderPicker=registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {result ->
+        val purpose=folderPurpose;folderPurpose=null
+        if(result.resultCode==RESULT_OK && result.data?.data!=null) {
+            runCatching {DownloadLocations(this).remember(result.data!!.data!!,result.data!!.flags)}
+                .onSuccess {destinationUnavailable=false}.onFailure {destinationUnavailable=true;toast(it.message ?: "Не удалось открыть папку")}
+        }
+        if(purpose=="download" && pendingDownload!=null) showDestinationDialog() else settingsScreen?.refresh()
+    }
     private val downloadNotifications=registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
     private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { search(it) }
@@ -64,6 +77,10 @@ class MainActivity : ComponentActivity() {
         if(light) setTheme(R.style.AppThemeLight)
         super.onCreate(savedInstanceState)
         api = RezkaApi(settings)
+        pendingDownload=savedInstanceState?.getString("pendingDownload")?.let {runCatching {PendingDownload.from(JSONObject(it))}.getOrNull()}
+        folderPurpose=savedInstanceState?.getString("folderPurpose")
+        rememberDestination=savedInstanceState?.getBoolean("rememberDestination") ?: false
+        destinationUnavailable=savedInstanceState?.getBoolean("destinationUnavailable") ?: false
         onBackPressedDispatcher.addCallback(this, object: OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { if(back.isEmpty()) finish() else { current=back.removeLast(); current?.invoke() } }
         })
@@ -71,6 +88,7 @@ class MainActivity : ComponentActivity() {
             "search" -> search();"bookmarks" -> bookmarks();"history" -> history();"account" -> account();else -> home()
         }
         if(!intent.getBooleanExtra("showDownloads",false) && savedInstanceState?.getBoolean("settings")!=true) intent.data?.let { openLink(it.toString()) }
+        if(pendingDownload!=null && folderPurpose==null) showDestinationDialog()
     }
     override fun onStart() {
         super.onStart()
@@ -82,8 +100,12 @@ class MainActivity : ComponentActivity() {
         if(intent.getBooleanExtra("showDownloads",false)) downloads() else intent.data?.let {selectionDialog?.dismiss();settingsScreen?.dismiss();openLink(it.toString())}
     }
     override fun onResume() {super.onResume();if(refreshAfterPlayer) {refreshAfterPlayer=false;current?.invoke()}}
-    override fun onSaveInstanceState(outState: Bundle) {outState.putBoolean("settings",showingSettings);super.onSaveInstanceState(outState)}
-    override fun onDestroy() {selectionDialog?.dismiss();settingsScreen?.dismiss();downloadActions?.dismiss();downloadPreparation?.dismiss();super.onDestroy()}
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("settings",showingSettings);pendingDownload?.let {outState.putString("pendingDownload",it.json().toString())}
+        outState.putString("folderPurpose",folderPurpose);outState.putBoolean("rememberDestination",rememberDestination);outState.putBoolean("destinationUnavailable",destinationUnavailable)
+        super.onSaveInstanceState(outState)
+    }
+    override fun onDestroy() {selectionDialog?.dismiss();settingsScreen?.dismiss();downloadActions?.dismiss();downloadPreparation?.dismiss();destinationDialog?.dismiss();super.onDestroy()}
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun text(value: String, size: Float = 16f, color: Int = foreground) = TextView(this).apply {
         text=value; textSize=size; setTextColor(color); setPadding(dp(4),dp(5),dp(4),dp(5))
@@ -347,7 +369,7 @@ class MainActivity : ComponentActivity() {
         else select("Добавить / убрать закладку",f.bookmarks.map {it.title}) {i->load({api.bookmark(f.card.id,f.bookmarks[i].id)}) {toast("Закладка обновлена")}}
     }
     private fun chooseVoice(f: Film, download: Boolean) {
-        if(selectionDialog?.isShowing==true || downloadActions?.isShowing==true || downloadJob?.isActive==true) return
+        if(selectionDialog?.isShowing==true || downloadActions?.isShowing==true || destinationDialog?.isShowing==true || folderPurpose=="download" || downloadJob?.isActive==true) return
         if(f.restricted.isNotBlank()) { toast(f.restricted);return }
         selectionDialog=VideoSelectionDialog(this,api,f,lifecycleScope,download) { v,season,episode,seasons,video ->
             deliverVideo(f,v,season,episode,download,seasons,video)
@@ -437,7 +459,7 @@ class MainActivity : ComponentActivity() {
     private fun preferences() {
         page("Настройки", {
             shell("Настройки")
-            settingsScreen=SettingsScreen(this,settings,::external,{recreate()},{load({api.request("/");"Соединение установлено"}) {toast(it)}})
+            settingsScreen=SettingsScreen(this,settings,::external,{recreate()},{load({api.request("/");"Соединение установлено"}) {toast(it)}},{pickDownloadFolder("settings")})
             settingsScreen!!.render(body)
         })
     }
@@ -453,17 +475,53 @@ class MainActivity : ComponentActivity() {
     }
     private fun startDownload(f: Film,voice: Voice,stream: Stream,s: String,e: String,subtitles: List<Subtitle>) {
         if(downloadJob?.isActive==true) return
+        val selection=PendingDownload(f,voice,stream,s,e,subtitles);val locations=DownloadLocations(this)
+        val tree=locations.tree
+        if(locations.always && (tree==null || locations.hasAccess(tree))) prepareDownload(selection,tree) else {
+            pendingDownload=selection;rememberDestination=locations.always;destinationUnavailable=tree!=null && !locations.hasAccess(tree);showDestinationDialog()
+        }
+    }
+    private fun pickDownloadFolder(purpose: String) {
+        folderPurpose=purpose;destinationDialog?.dismiss()
+        runCatching {folderPicker.launch(DownloadLocations(this).picker())}.onFailure {
+            folderPurpose=null;toast("На устройстве нет доступного выбора папок. Можно использовать папку приложения.")
+            if(purpose=="download") showDestinationDialog()
+        }
+    }
+    private fun showDestinationDialog() {
+        if(pendingDownload==null || destinationDialog?.isShowing==true || isFinishing) return
+        val locations=DownloadLocations(this)
+        val content=panel()
+        content.addView(text(locations.label(),14f).apply {id=R.id.download_destination})
+        if(locations.tree!=null) content.addView(text("Для видео будет создана отдельная папка",13f,muted))
+        if(destinationUnavailable) content.addView(text("Выберите доступную папку заново",14f))
+        content.addView(button("Выбрать папку") {pickDownloadFolder("download")}.apply {id=R.id.pick_download_folder})
+        content.addView(button("Папка приложения") {locations.appFolder();settings.prefs.edit().putInt("downloadStorage",0).apply();destinationUnavailable=false;destinationDialog?.dismiss();showDestinationDialog()})
+        val remember=Switch(this).apply {id=R.id.remember_download_path;text="Всегда сохранять в эту папку";isChecked=rememberDestination;setOnCheckedChangeListener {_,value ->rememberDestination=value}}
+        content.addView(remember)
+        destinationDialog=AlertDialog.Builder(this).setTitle("Место скачивания").setView(content)
+            .setPositiveButton("Скачать") {_,_ ->
+                locations.always=rememberDestination
+                val selected=pendingDownload;pendingDownload=null
+                if(selected!=null) prepareDownload(selected,locations.tree)
+            }.setNegativeButton("Отмена") {_,_ ->pendingDownload=null}.setOnCancelListener {pendingDownload=null}.show()
+        destinationDialog?.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled=!destinationUnavailable
+    }
+    private fun prepareDownload(selection: PendingDownload,tree: Uri?) {
+        val (f,voice,stream,s,e,subtitles)=selection
         downloadPreparation=AlertDialog.Builder(this).setMessage("Подготовка загрузки…").setView(ProgressBar(this))
             .setNegativeButton("Отмена") {_,_ ->downloadJob?.cancel()}.setOnCancelListener {downloadJob?.cancel()}.show()
         downloadJob=lifecycleScope.launch {
             try {
                 val repository=HlsDownloads.get(this@MainActivity)
                 val request=withContext(Dispatchers.IO) {
-                    if(HlsDownloadPlan.isHls(stream.url,repository.networkFactory(api.absolute(f.card.url)))) repository.prepare(f,voice,s,e,stream,subtitles) else null
+                    val hls=HlsDownloadPlan.isHls(stream.url,repository.networkFactory(api.absolute(f.card.url)))
+                    if(hls || tree!=null) repository.prepare(f,voice,s,e,stream,subtitles,tree,!hls) else null
                 }
                 if(request==null) enqueueMp4(f,voice,stream,s,e,subtitles) else {
-                    repository.add(this@MainActivity,request)
-                    toast("Загрузка HLS добавлена. Прогресс — в разделе «Загрузки».")
+                    val existing=withContext(Dispatchers.IO) {repository.completedCopy(request)}
+                    if(existing!=null) {toast("Видео уже скачано в эту папку");return@launch}
+                    repository.add(this@MainActivity,request);toast("Загрузка добавлена. Прогресс — в разделе «Загрузки».")
                     if(android.os.Build.VERSION.SDK_INT>=33 && androidx.core.content.ContextCompat.checkSelfPermission(this@MainActivity,android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED && !settings.prefs.getBoolean("hlsNotificationsAsked",false)) {
                         settings.prefs.edit().putBoolean("hlsNotificationsAsked",true).apply();downloadNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
                     }
@@ -471,6 +529,7 @@ class MainActivity : ComponentActivity() {
             } catch(e: CancellationException) {throw e} catch(e: Exception) {
                 val denied=generateSequence<Throwable>(e) {it.cause}.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().firstOrNull()
                 toast(if(denied!=null) HlsDownloads.get(this@MainActivity).errorMessage(e) else e.message ?: "Не удалось начать загрузку")
+                if(e is DownloadFolderException) {pendingDownload=selection;rememberDestination=DownloadLocations(this@MainActivity).always;destinationUnavailable=true;showDestinationDialog()}
             } finally {downloadPreparation?.dismiss()}
         }
     }
@@ -552,7 +611,9 @@ class MainActivity : ComponentActivity() {
             val row=rows.getOrPut(request.id) {
                 val root=panel();root.addView(text(metadata.optString("title"),19f))
                 val episode=if(metadata.optString("episode").isBlank()) "" else " · S${metadata.optString("season")}E${metadata.optString("episode")}"
-                root.addView(text("HLS · ${metadata.optString("quality")} · ${metadata.optString("voiceTitle")}$episode",14f,muted))
+                val format=if(request.mimeType==androidx.media3.common.MimeTypes.APPLICATION_M3U8) "HLS" else "MP4"
+                root.addView(text("$format · ${metadata.optString("quality")} · ${metadata.optString("voiceTitle")}$episode",14f,muted))
+                root.addView(text(metadata.optString("destination",metadata.optString("root")),12f,muted))
                 val status=text("");root.addView(status)
                 val actions=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL};root.addView(actions);parent.addView(root)
                 HlsDownloadRow(root,status,actions)

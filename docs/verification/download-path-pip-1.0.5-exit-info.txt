@@ -1,0 +1,12 @@
+ACTIVITY MANAGER PROCESS EXIT INFO (dumpsys activity exit-info)
+Last Timestamp of Persistence Into Persistent Storage: 1970-01-01 00:00:00.000
+  package: com.lumenkot.app
+    Historical Process Exit for uid=10209
+        ApplicationExitInfo #0:
+          timestamp=2026-11-05 17:04:46.030 pid=2620 realUid=10209 packageUid=10209 definingUid=10209 user=0
+          process=com.lumenkot.app reason=6 (ANR) subreason=0 (UNKNOWN) status=0
+          importance=125 pss=0.00 rss=0.00 description=bg anr: Process ProcessRecord{c60272a 2620:com.lumenkot.app/u0a209} failed to complete startup state=empty trace=/data/system/procexitstore/anr_2026-11-05-17-04-30-246.gz
+        ApplicationExitInfo #1:
+          timestamp=2026-11-05 17:01:43.975 pid=2321 realUid=10209 packageUid=10209 definingUid=10209 user=0
+          process=com.lumenkot.app reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0
+          importance=100 pss=0.00 rss=0.00 description=stop com.lumenkot.app due to start instr state=empty trace=null

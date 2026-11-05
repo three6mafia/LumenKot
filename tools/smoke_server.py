@@ -53,7 +53,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(404)
             else:
                 self.send(file.read_bytes(), 'application/vnd.apple.mpegurl' if file.suffix == '.m3u8' else 'video/mp2t')
-        elif path == '/video.mp4': self.send(Path('/tmp/lumenkot-smoke.mp4').read_bytes(), 'video/mp4')
+        elif path == '/video.mp4':
+            with HLS_LOCK: blocked = HLS_STATE['blocked']
+            if blocked: self.send_error(503, 'Video network disabled by fixture test')
+            else: self.send(Path('/tmp/lumenkot-smoke.mp4').read_bytes(), 'video/mp4')
         elif path == '/poster.png': self.send((Path(__file__).resolve().parents[1]/'app/src/main/res/drawable/app_icon.png').read_bytes(), 'image/png')
         elif path.startswith('/series/') and path.endswith('.html'): self.send(FILM.replace('video.movie', 'video.tv_show')+SEASONS+EPISODES)
         elif path.endswith('.html'): self.send(FILM)
