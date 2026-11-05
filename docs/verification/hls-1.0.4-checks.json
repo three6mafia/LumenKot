@@ -1,0 +1,119 @@
+{
+  "version": "1.0.4-test",
+  "versionCode": 5,
+  "base": "a70f43c",
+  "branch": "fix/source-ui-parity",
+  "apk": "artifacts/LumenKot-1.0.4-test.apk",
+  "bytes": 7910545,
+  "sha256": "3d5c84b614767811b421faefb1026e67b5aa4229fc86cf5f950d71a8738e4135",
+  "signing_certificate_sha256": "c46f3246a289ec016eb7ae42590588bd3ec1bea1dbfbe014481d5cf489485929",
+  "same_certificate_as_1_0_3": true,
+  "build": {
+    "assembleRelease": "passed",
+    "assembleDebug": "passed",
+    "assembleDebugAndroidTest": "passed",
+    "testDebugUnitTest": "passed",
+    "lintDebug": "passed"
+  },
+  "unit_tests": [
+    {
+      "name": "com.lumenkot.app.DownloadFlowTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.HlsOfflineTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.NativeRuntimeTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.ParserTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PipPresentationTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PlaybackLifecycleTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PlaybackOptionsTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PlayerInteractionTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.QualityAndSettingsTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "unit_test_total": 61,
+  "lint": {
+    "Warning": 122
+  },
+  "hls": {
+    "implementation": "Media3 1.6.1 DefaultDownloaderFactory / HlsDownloader + DownloadManager + DownloadService + SQLite index",
+    "jvm_real_http_downloader_cache_and_reopen": "passed",
+    "jvm_cache_miss_with_live_server_no_network_fallback": "passed",
+    "jvm_resume_and_persistent_pause": "passed",
+    "jvm_quality_isolation_on_removal": "passed",
+    "jvm_cookie_host_isolation": "passed",
+    "jvm_missing_storage_queue_survival": "passed",
+    "jvm_download_and_share_actions": "passed",
+    "v2_signature": "passed"
+  },
+  "android": {
+    "image": "Android 15 API 35 AOSP ATD x86_64, software emulation, no KVM",
+    "debug_and_test_apk_install": "passed",
+    "tested_variant": "release",
+    "targeted_test": "HlsDownloadTest.backgroundServiceDownloadsAndPlayerAdvancesWithHlsNetworkDisabled",
+    "targeted_test_result": "passed",
+    "service_download_with_persisted_completion": "passed",
+    "media3_position_advances_while_hls_http_returns_503": "passed",
+    "hls_request_count_unchanged_during_playback": "passed",
+    "instrumentation_suite_prepared": 12,
+    "full_instrumentation_suite_run": false,
+    "release_apk_device_install": "passed",
+    "release_apk_cold_launch": "passed",
+    "initial_instrumentation_attempt": "process startup ANR before the first test"
+  },
+  "not_verified": [
+    "real Premium account and live provider/CDN",
+    "physical removable SD card",
+    "long background transfers and OEM power management",
+    "full visual/UI parity with the source Lumen"
+  ]
+}

@@ -16,11 +16,18 @@ import java.util.concurrent.TimeUnit
 
 class Settings(context: Context) {
     val prefs = context.getSharedPreferences("lumen", Context.MODE_PRIVATE)
+    init {
+        // Correct the old default on upgrade without replacing custom mirrors or cookies.
+        if (prefs.getInt("networkDefaultsVersion",0)<2) {
+            if (prefs.getString("provider",Links.providers.first())==Links.providers.first()) prefs.edit().putBoolean("official",false).apply()
+            prefs.edit().putInt("networkDefaultsVersion",2).apply()
+        }
+    }
     var provider: String
         get() = prefs.getString("provider", Links.providers.first())!!
         set(value) { require(value.startsWith("https://") || value.startsWith("http://")); prefs.edit().putString("provider", value.trimEnd('/')).apply() }
     var official: Boolean
-        get() = prefs.getBoolean("official", true)
+        get() = prefs.getBoolean("official", false)
         set(value) { prefs.edit().putBoolean("official", value).apply() }
     var shareLink: String
         get() = prefs.getString("shareLink",Links.providers.first())!!
@@ -28,6 +35,11 @@ class Settings(context: Context) {
     var cdn: String
         get() = prefs.getString("cdn", "")!!
         set(value) { prefs.edit().putString("cdn", value.trimEnd('/')).apply() }
+    var automaticCDN: Boolean
+        get() = prefs.getBoolean("automaticCDN",cdn.isBlank())
+        set(value) {prefs.edit().putBoolean("automaticCDN",value).apply();if(!value && cdn.isBlank()) cdn=Links.cdns.first()}
+    val volumeStep get() = prefs.getInt("volumeStep",1).coerceIn(1,5)
+    val quality get() = prefs.getString("quality","720p") ?: "720p"
     var userAgent: String
         get() = prefs.getString("userAgent", "Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}; ${Build.MANUFACTURER} ${Build.MODEL}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36")!!
         set(value) { prefs.edit().putString("userAgent", value).apply() }
@@ -60,6 +72,8 @@ class PersistentCookies(private val settings: Settings): CookieJar {
     fun signedIn() = loadForRequest(settings.endpoint.toHttpUrl()).any { it.name == "dle_password" && it.value.isNotEmpty() }
 }
 
+class PremiumRequiredException(message: String): IllegalStateException(message)
+
 class RezkaApi(val settings: Settings) {
     val cookies = PersistentCookies(settings)
     val client = OkHttpClient.Builder().cookieJar(cookies).connectTimeout(20, TimeUnit.SECONDS).readTimeout(35, TimeUnit.SECONDS).callTimeout(50, TimeUnit.SECONDS).build()
@@ -73,7 +87,7 @@ class RezkaApi(val settings: Settings) {
         else -> settings.endpoint + "/" + path.trimStart('/')
     }
     fun request(path: String, fields: Map<String, String> = emptyMap(), post: Boolean = false): String {
-        val u = absolute(path).toHttpUrl().newBuilder()
+        val u = absolute(if(post) path.trimEnd('/')+"/" else path).toHttpUrl().newBuilder()
         if (post) u.addQueryParameter("t", System.currentTimeMillis().toString()) else fields.forEach { (k,v) -> u.addQueryParameter(k,v) }
         val req = Request.Builder().url(u.build())
         headers().forEach { (k,v) -> req.header(k,v) }
@@ -83,21 +97,34 @@ class RezkaApi(val settings: Settings) {
             req.post(body.build())
         }
         return client.newCall(req.build()).execute().use { res ->
+            check(!post || res.request.method=="POST") { "Сервис перенаправил запрос входа или видео на обычную страницу. Проверьте выбранное зеркало." }
             check(res.isSuccessful) { "Сервис ответил HTTP ${res.code}" }
             val body = res.body?.string().orEmpty()
+            if(!body.trimStart().startsWith('{')) Parser.servicePageError(body)?.let {error(it)}
             val error = if (!body.trimStart().startsWith('{')) Jsoup.parse(body).selectFirst(".error-code") else null
             check(error == null) { Jsoup.parse(body).selectFirst(".error-title")?.text() ?: "Сервис временно недоступен" }
             body
         }
     }
-    fun json(path: String, fields: Map<String, String>): JSONObject = JSONObject(request(path, fields, true))
-    fun checked(path: String, fields: Map<String, String>): JSONObject = json(path, fields).also { check(it.optBoolean("success")) { Jsoup.parse(it.optString("message", "Не удалось выполнить запрос")).text() } }
+    fun json(path: String, fields: Map<String, String>): JSONObject {
+        val response=request(path,fields,true)
+        check(response.trimStart().startsWith("{")) { "Сервис вернул страницу вместо видеоданных. Проверьте зеркало и вход в аккаунт." }
+        return JSONObject(response)
+    }
+    fun checked(path: String, fields: Map<String, String>): JSONObject = json(path, fields).also {
+        if(!it.optBoolean("success")) {
+            val message=Jsoup.parse(it.optString("message")).text().ifBlank {"Сервис отклонил запрос. Проверьте доступ к выбранному видео или аккаунту на сайте."}
+            if(Regex("premium|премиум|подписк",RegexOption.IGNORE_CASE).containsMatchIn(message)) throw PremiumRequiredException(message+"\n"+PlaybackQuality.premiumMessage("выбранного видео"))
+            error(message)
+        }
+    }
     fun catalog(path: String = "/new", page: Int = 1, filter: String = "", genre: String = ""): Catalog = Parser.catalog(request(path.trimEnd('/') + "/page/$page/", buildMap { if(filter.isNotEmpty()) put("filter",filter); if(genre.isNotEmpty()) put("genre",genre) }))
     fun search(query: String, page: Int): Catalog = Parser.catalog(request("/search/", mapOf("do" to "search", "subaction" to "search", "q" to query, "page" to "$page")))
     fun hot(genre: String = "0") = Parser.catalog(request("/engine/ajax/get_newest_slider_content.php", mapOf("id" to genre), true))
     fun film(url: String) = Parser.film(request(url), url)
     fun seasons(film: Film, voice: Voice): List<Season> {
-        val j = checked("/ajax/get_cdn_series", mapOf("id" to film.card.id,"translator_id" to voice.id,"action" to "get_episodes"))
+        val j = json("/ajax/get_cdn_series", mapOf("id" to film.card.id,"translator_id" to voice.id,"action" to "get_episodes"))
+        check(!j.has("success") || j.optBoolean("success")) { Jsoup.parse(j.optString("message","Не удалось получить серии")).text() }
         return Parser.seasons(Jsoup.parse(j.optString("seasons") + j.optString("episodes")))
     }
     fun video(film: Film, voice: Voice, season: String = "", episode: String = ""): Video {
@@ -107,7 +134,7 @@ class RezkaApi(val settings: Settings) {
         else { data["is_camrip"] = voice.camrip; data["is_ads"] = voice.ads; data["is_director"] = voice.director }
         return modify(Parser.video(checked("/ajax/get_cdn_series", data)))
     }
-    private fun modify(v: Video): Video = if(settings.cdn.isEmpty()) v else v.copy(streams=v.streams.map { s -> val host=settings.cdn.toHttpUrl(); s.copy(url=s.url.toHttpUrl().newBuilder().scheme(host.scheme).host(host.host).port(host.port).build().toString()) })
+    private fun modify(v: Video): Video = if(settings.automaticCDN || settings.cdn.isEmpty()) v else v.copy(streams=v.streams.map { s -> if(!s.available) s else {val host=settings.cdn.toHttpUrl(); s.copy(url=s.url.toHttpUrl().newBuilder().scheme(host.scheme).host(host.host).port(host.port).build().toString())} })
     fun saveWatch(film: Film, voice: Voice, season: String, episode: String, seconds: Long) {
         json("/ajax/send_save", mapOf("post_id" to film.card.id, "translator_id" to voice.id,"season" to season.ifBlank { "0" }, "episode" to episode.ifBlank { "0" }, "current_time" to seconds.coerceAtLeast(1).toString()))
     }
@@ -115,7 +142,7 @@ class RezkaApi(val settings: Settings) {
     fun profile(): String {
         val id = cookies.loadForRequest(settings.endpoint.toHttpUrl()).firstOrNull { it.name == "dle_user_id" }?.value ?: error("Войдите в аккаунт")
         val r = Jsoup.parse(request("/user/$id"))
-        return listOf(r.title(), r.selectFirst("#email")?.attr("value").orEmpty(), r.selectFirst(".b-tophead-premuser")?.text().orEmpty()).filter { it.isNotBlank() }.joinToString("\n")
+        return listOf(r.title(), r.selectFirst("#email")?.attr("value").orEmpty(), r.selectFirst(".b-tophead-premuser")?.text()?.let {"HDrezka Premium · $it"}.orEmpty()).filter { it.isNotBlank() }.joinToString("\n")
     }
     fun bookmarks(): List<Choice> = Jsoup.parse(request("/favorites")).select(".b-favorites_content__cats_list_item").map { Choice(it.attr("data-cat_id"), it.selectFirst(".name")?.text().orEmpty()) }
     fun bookmark(film: String, category: String) { checked("/ajax/favorites",mapOf("post_id" to film,"cat_id" to category,"action" to "add_post")) }

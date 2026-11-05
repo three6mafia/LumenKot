@@ -1,0 +1,3 @@
+artifacts/LumenKot-1.0.4-test.apk: 1 file pushed, 0 skipped. 45.9 MB/s (7910545 bytes in 0.164s)
+Performing Push Install
+Success

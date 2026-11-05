@@ -1,0 +1,81 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites tests="61" failures="0" errors="0" skipped="0"><testsuite name="com.lumenkot.app.DownloadFlowTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:41:04.629Z" hostname="f58ac98e6136" time="13.921">
+  <properties />
+  <testcase name="mp4StillQueuesThroughAndroidDownloadManagerAfterExplicitDownload" classname="com.lumenkot.app.DownloadFlowTest" time="13.326" />
+  <testcase name="downloadMenuOffersTwoExplicitActionsAndSharingKeepsTheWholeSelectedUrl" classname="com.lumenkot.app.DownloadFlowTest" time="0.323" />
+  <testcase name="cancelingDownloadActionsDoesNotQueueAnything" classname="com.lumenkot.app.DownloadFlowTest" time="0.271" />
+  </testsuite><testsuite name="com.lumenkot.app.HlsOfflineTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:41:18.586Z" hostname="f58ac98e6136" time="9.993">
+  <properties />
+  <testcase name="encryptedSegmentsAudioSubtitlesAndInitRemainReadableAfterServerStopsAndStoreReopens" classname="com.lumenkot.app.HlsOfflineTest" time="1.035" />
+  <testcase name="pausedQueueSurvivesReopenAndResumesOnlyAfterUserRequestsIt" classname="com.lumenkot.app.HlsOfflineTest" time="0.672" />
+  <testcase name="deletingOneQualityPreservesTheOtherQualityIncludingSharedManifestAndAudio" classname="com.lumenkot.app.HlsOfflineTest" time="1.273" />
+  <testcase name="changingDownloadStorageDoesNotRedirectExistingOfflineMedia" classname="com.lumenkot.app.HlsOfflineTest" time="0.603" />
+  <testcase name="interruptedDownloadResumesFromCacheAfterProcessStorageReopens" classname="com.lumenkot.app.HlsOfflineTest" time="0.608" />
+  <testcase name="missingStorageFailsOneJobWithoutBreakingTheRestOfTheQueue" classname="com.lumenkot.app.HlsOfflineTest" time="0.615" />
+  <testcase name="openingOfflineCopyOfTheSameUrlReplacesTheStreamingSessionAndKeepsStreamKeys" classname="com.lumenkot.app.HlsOfflineTest" time="2.454" />
+  <testcase name="downloadManagerPersistsACompletedQueueEntryAndRemovesItsCache" classname="com.lumenkot.app.HlsOfflineTest" time="0.812" />
+  <testcase name="optionalMissingSubtitleDoesNotInvalidateVideoOrCreateAnOnlineSubtitle" classname="com.lumenkot.app.HlsOfflineTest" time="0.749" />
+  <testcase name="masterSelectsOneQualityAndDefaultAudioAndRejectsLive" classname="com.lumenkot.app.HlsOfflineTest" time="0.423" />
+  <testcase name="downloadKeepsAgentRefererAndCookiesWithoutCrossingHostBoundaries" classname="com.lumenkot.app.HlsOfflineTest" time="0.743" />
+  </testsuite><testsuite name="com.lumenkot.app.NativeRuntimeTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:41:28.599Z" hostname="f58ac98e6136" time="1.433">
+  <properties />
+  <testcase name="seriesResponseWithoutSuccessFlagMatchesSourceContract" classname="com.lumenkot.app.NativeRuntimeTest" time="0.075" />
+  <testcase name="websiteSaveKeepsRealTimeAndDoesNotDependOnAnActivityScope" classname="com.lumenkot.app.NativeRuntimeTest" time="0.062" />
+  <testcase name="localHistoryDeduplicatesAndPersists" classname="com.lumenkot.app.NativeRuntimeTest" time="0.034" />
+  <testcase name="mobileNavigationContainsExactlyOriginalFiveActions" classname="com.lumenkot.app.NativeRuntimeTest" time="0.183" />
+  <testcase name="nativeHttpCatalogFilmSearchCommentsAndVideo" classname="com.lumenkot.app.NativeRuntimeTest" time="0.279" />
+  <testcase name="htmlLoginResponseShowsActionableErrorInsteadOfJsonException" classname="com.lumenkot.app.NativeRuntimeTest" time="0.04" />
+  <testcase name="freshInstallUsesRezkaWithoutOfficialHeaders" classname="com.lumenkot.app.NativeRuntimeTest" time="0.031" />
+  <testcase name="nativeActivityCreatesWithLightTheme" classname="com.lumenkot.app.NativeRuntimeTest" time="0.164" />
+  <testcase name="nativeActivityCreatesWithDarkTheme" classname="com.lumenkot.app.NativeRuntimeTest" time="0.185" />
+  <testcase name="upgradeCorrectsOldOfficialDefaultAndPreservesCookies" classname="com.lumenkot.app.NativeRuntimeTest" time="0.046" />
+  <testcase name="ajaxVideoPostUsesOriginalSlashAndKeepsFormFields" classname="com.lumenkot.app.NativeRuntimeTest" time="0.086" />
+  <testcase name="cookiesPersistWithoutCrossingMirrors" classname="com.lumenkot.app.NativeRuntimeTest" time="0.162" />
+  <testcase name="postRedirectToHtmlIsReportedInsteadOfParsedAsJson" classname="com.lumenkot.app.NativeRuntimeTest" time="0.083" />
+  </testsuite><testsuite name="com.lumenkot.app.ParserTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:41:30.038Z" hostname="f58ac98e6136" time="0.063">
+  <properties />
+  <testcase name="decodesObfuscatedStreamsAndKeepsOriginalLinks" classname="com.lumenkot.app.ParserTest" time="0.042" />
+  <testcase name="parsesActiveWebsiteEpisodeAndLazyPoster" classname="com.lumenkot.app.ParserTest" time="0.011" />
+  <testcase name="parsesEpisodesWithAndWithoutSeasonTabs" classname="com.lumenkot.app.ParserTest" time="0.001" />
+  <testcase name="parsesFilmAndInlineMovieVideo" classname="com.lumenkot.app.ParserTest" time="0.005" />
+  <testcase name="parsesSubtitlesAndDefaultLanguage" classname="com.lumenkot.app.ParserTest" time="0.001" />
+  <testcase name="parsesCatalogAndPagination" classname="com.lumenkot.app.ParserTest" time="0.001" />
+  <testcase name="browserChallengeIsNotMistakenForCatalogOrWrongPassword" classname="com.lumenkot.app.ParserTest" time="0.001" />
+  <testcase name="preservesOriginalServiceDefaults" classname="com.lumenkot.app.ParserTest" time="0.001" />
+  </testsuite><testsuite name="com.lumenkot.app.PipPresentationTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:41:30.109Z" hostname="f58ac98e6136" time="0.728">
+  <properties />
+  <testcase name="wiredSwipeCallbacksAdjustMusicAndWindowWithoutWritingSystemBrightness" classname="com.lumenkot.app.PipPresentationTest" time="0.177" />
+  <testcase name="leavingMiniModeRestoresFullscreenController" classname="com.lumenkot.app.PipPresentationTest" time="0.172" />
+  <testcase name="systemActionsMatchEpisodeBoundariesAndMoviesOnlyHavePlay" classname="com.lumenkot.app.PipPresentationTest" time="0.379" />
+  </testsuite><testsuite name="com.lumenkot.app.PlaybackLifecycleTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:41:30.840Z" hostname="f58ac98e6136" time="2.037">
+  <properties />
+  <testcase name="savedEpisodePayloadSurvivesActivityRecreation" classname="com.lumenkot.app.PlaybackLifecycleTest" time="0.694" />
+  <testcase name="hardwareVolumeKeysUseConfiguredStepAndClamp" classname="com.lumenkot.app.PlaybackLifecycleTest" time="0.351" />
+  <testcase name="pauseKeepsVisiblePipButStopReleasesItAndSavesPosition" classname="com.lumenkot.app.PlaybackLifecycleTest" time="0.253" />
+  <testcase name="repeatingSameMediaKeepsPlayerAndDifferentMediaReplacesSessionInPlace" classname="com.lumenkot.app.PlaybackLifecycleTest" time="0.298" />
+  <testcase name="closeActionFinishesAndReleasesEvenBeforeSystemStopCallback" classname="com.lumenkot.app.PlaybackLifecycleTest" time="0.219" />
+  <testcase name="expandingPipDoesNotCloseTheResumedFullscreenSession" classname="com.lumenkot.app.PlaybackLifecycleTest" time="0.221" />
+  </testsuite><testsuite name="com.lumenkot.app.PlaybackOptionsTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:41:32.882Z" hostname="f58ac98e6136" time="0.005">
+  <properties />
+  <testcase name="maxUsesResolutionAndExplicitSelectionOverridesSavedPreference" classname="com.lumenkot.app.PlaybackOptionsTest" time="0.001" />
+  <testcase name="suppliedPremiumStreamRemainsPlayableWithoutGuessingAccountEntitlement" classname="com.lumenkot.app.PlaybackOptionsTest" time="0.002" />
+  <testcase name="premiumPlaceholdersSurviveParsingButAreNeverChosenForPlayback" classname="com.lumenkot.app.PlaybackOptionsTest" time="0.0" />
+  <testcase name="volumeStepQuantizesMovementAndClampsBothEnds" classname="com.lumenkot.app.PlaybackOptionsTest" time="0.001" />
+  </testsuite><testsuite name="com.lumenkot.app.PlayerInteractionTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:41:32.929Z" hostname="f58ac98e6136" time="0.44">
+  <properties />
+  <testcase name="verticalSwipesKeepTheirSideAndDoNotTriggerHoldTapOrSeek" classname="com.lumenkot.app.PlayerInteractionTest" time="0.116" />
+  <testcase name="oldTimestampKeysStillEnableContinueWithoutResettingPosition" classname="com.lumenkot.app.PlayerInteractionTest" time="0.019" />
+  <testcase name="holdBeginsAfterThresholdAndCancelRestoresItWithoutTogglingControls" classname="com.lumenkot.app.PlayerInteractionTest" time="0.067" />
+  <testcase name="doubleTapSeeksOnTheChosenSideAndDoesNotToggleControls" classname="com.lumenkot.app.PlayerInteractionTest" time="0.062" />
+  <testcase name="controlsReceiveTheirOwnTouches" classname="com.lumenkot.app.PlayerInteractionTest" time="0.131" />
+  <testcase name="exactPositionAndSelectionSurviveNewInstancesAndMirrorChanges" classname="com.lumenkot.app.PlayerInteractionTest" time="0.045" />
+  </testsuite><testsuite name="com.lumenkot.app.QualityAndSettingsTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:41:33.377Z" hostname="f58ac98e6136" time="1.56">
+  <properties />
+  <testcase name="mobileSettingsOpenFiveOriginalGroupsAndOnlyOneModal" classname="com.lumenkot.app.QualityAndSettingsTest" time="0.456" />
+  <testcase name="downloadAlwaysAsksQualityAndDoesNotChangePlayerPreference" classname="com.lumenkot.app.QualityAndSettingsTest" time="0.217" />
+  <testcase name="disablingAskUsesPreferenceAndRemembersOnlyWhenEnabled" classname="com.lumenkot.app.QualityAndSettingsTest" time="0.125" />
+  <testcase name="apiPremiumRefusalIsActionableAndCustomCdnKeepsLockedQualitySafe" classname="com.lumenkot.app.QualityAndSettingsTest" time="0.112" />
+  <testcase name="deniedUltraOffersQualityChangeWithoutRetryingTheSameUrl" classname="com.lumenkot.app.QualityAndSettingsTest" time="0.256" />
+  <testcase name="preplayQualityWaitsForSelectionAndPremiumPlaceholderDoesNotStartPlayback" classname="com.lumenkot.app.QualityAndSettingsTest" time="0.144" />
+  <testcase name="tvSettingsKeepGroupsBesideTheirContent" classname="com.lumenkot.app.QualityAndSettingsTest" time="0.247" />
+  </testsuite></testsuites>

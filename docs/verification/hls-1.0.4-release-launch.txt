@@ -1,0 +1,7 @@
+Starting: Intent { cmp=com.lumenkot.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.lumenkot.app/.MainActivity
+TotalTime: 3928
+WaitTime: 3973
+Complete

@@ -1,0 +1,6 @@
+Starting: Intent { cmp=com.lumenkot.app/.MainActivity }
+Status: timeout
+LaunchState: UNKNOWN (-1)
+Activity: com.lumenkot.app/.MainActivity
+WaitTime: 19795
+Complete
