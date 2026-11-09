@@ -1,0 +1,7 @@
+{
+  "device": "emulator-5554",
+  "artifact": "artifacts/LumenKot-1.0.5-test.apk",
+  "device_apk_sha256": "3fcf59c4d834de2d41f32e4d83e11d30520d73d74aa147a357bc0129021365cc",
+  "artifact_sha256": "3fcf59c4d834de2d41f32e4d83e11d30520d73d74aa147a357bc0129021365cc",
+  "same_apk": true
+}

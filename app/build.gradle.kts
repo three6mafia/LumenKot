@@ -1,4 +1,5 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
+val defaultVersionName = "1.0.6-test"
 android {
     namespace = "com.lumenkot.app"
     compileSdk = 35
@@ -7,8 +8,9 @@ android {
         minSdk = 24
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = providers.environmentVariable("LUMEN_VERSION_CODE").map { it.toInt() }.getOrElse(7)
+        versionName = providers.environmentVariable("LUMEN_VERSION_NAME").getOrElse(defaultVersionName)
+        ndk { abiFilters += listOf("arm64-v8a","x86_64") }
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -18,6 +20,7 @@ android {
             it.systemProperty("robolectric.dependency.dir",layout.buildDirectory.dir("robolectric-sdks").get().asFile.absolutePath)
         }
     }
+    sourceSets.getByName("androidTest").assets.srcDir("src/test/resources")
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     buildTypes { release { isMinifyEnabled = false; signingConfig = signingConfigs.getByName("debug") } }
@@ -33,6 +36,10 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.6.1")
     implementation("androidx.media3:media3-ui:1.6.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.6.1")
+    implementation("androidx.media3:media3-database:1.6.1")
+    implementation("dev.ffmpegkit-maintained:ffmpeg-kit-min:8.1.7")
+    // The maintained AAR references this at runtime but omits it from its published POM.
+    implementation("com.arthenica:smart-exception-java:0.2.1")
     implementation("com.google.firebase:firebase-firestore:25.1.4")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
@@ -52,3 +59,11 @@ val prepareRobolectricSdk by tasks.registering(Copy::class) {
     into(layout.buildDirectory.dir("robolectric-sdks"))
 }
 tasks.withType<Test>().configureEach { dependsOn(prepareRobolectricSdk) }
+
+// A live-service check is a separate required operation, not an offline fixture test.
+tasks.withType<Test>().configureEach {
+    if (!project.hasProperty("liveRezka")) exclude("**/LiveRezkaTest*")
+    else listOf("https.proxyHost","https.proxyPort","http.proxyHost","http.proxyPort","javax.net.ssl.trustStore","javax.net.ssl.trustStorePassword","lumen.liveProvider","lumen.liveFilm","lumen.liveUserAgent").forEach { key ->
+        System.getProperty(key)?.let { value -> systemProperty(key,value) }
+    }
+}

@@ -1,0 +1,32 @@
+Google APIs boot crash:
+--------- beginning of crash
+11-03 05:40:36.013   887   887 E AndroidRuntime: FATAL EXCEPTION: main
+11-03 05:40:36.013   887   887 E AndroidRuntime: Process: com.android.systemui, PID: 887
+11-03 05:40:36.013   887   887 E AndroidRuntime: DeadSystemException: The system died; earlier logs will point to the root cause
+11-03 05:40:36.021   963   963 E AndroidRuntime: FATAL EXCEPTION: main
+11-03 05:40:36.021   963   963 E AndroidRuntime: Process: com.google.android.permissioncontroller, PID: 963
+11-03 05:40:36.021   963   963 E AndroidRuntime: DeadSystemException: The system died; earlier logs will point to the root cause
+
+AOSP ATD: process aborted with exit code 134. No picture_in_picture feature in the collected pm list features.
+Release installation and launch were not completed.
+000
+INFO         | Monitoring duration of emulator setup.
+WARNING      | Using fallback path for the emulator registration directory.
+WARNING      | The emulator now requires a signed jwt token for gRPC access! Use the -grpc flag if you really want an open unprotected grpc port
+INFO         | Using security allow list from: /workspace/android-sdk/emulator/lib/emulator_access.json
+INFO         | The active JSON Web Key Sets can be found here: /home/agent/.android/avd/running/1945/jwks/e783300b-2d05-4ac6-b311-bb17f456d2f0/active.jwk
+INFO         | Scanning /home/agent/.android/avd/running/1945/jwks/e783300b-2d05-4ac6-b311-bb17f456d2f0 for jwk keys.
+INFO         | Started GRPC server at 127.0.0.1:8554, security: Local, auth: +token
+WARNING      | Using fallback path for the emulator registration directory.
+INFO         | Advertising in: /home/agent/.android/avd/running/pid_1945.ini
+INFO         | Successfully initialized netsim WiFi
+INFO         | Setting display: 0 configuration to: 480x800, dpi: 160x160 
+INFO         | setDisplayActiveConfig: id:0, 480x800
+INFO         | emulatorSetupEnvironment: Environment scene is not required
+USER_INFO    | Emulator is performing a full startup. This may take upto two minutes, or more.
+WARNING      | Failed to process .ini file /home/agent/.android/emu-update-last-check.ini for reading.
+WARNING      | UpdateCheck: Failure: Error
+WARNING      | UpdateCheck: failed to get the latest version, skipping check (current version '37.2.12-16428233')
+WARNING      | Netsim Wifi ipv6:%5B::1%5D:35123 is gone due to Stream removed (Socket closed)
+[1952:1952:20261103,054906.865289:ERROR file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq: No such file or directory (2)
+[1952:1952:20261103,054906.865549:ERROR file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq: No such file or directory (2)

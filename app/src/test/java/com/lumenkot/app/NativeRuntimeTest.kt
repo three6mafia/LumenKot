@@ -65,6 +65,86 @@ class NativeRuntimeTest {
         settings.prefs.edit().putString("theme","dark").commit()
         Robolectric.buildActivity(MainActivity::class.java).setup().use { controller -> assertFalse(controller.get().isFinishing) }
     }
+    @Test fun freshInstallUsesRezkaWithoutOfficialHeaders() {
+        settings.prefs.edit().clear().commit()
+        val fresh=Settings(ApplicationProvider.getApplicationContext())
+        assertEquals("https://rezka.ag",fresh.endpoint)
+        assertFalse(RezkaApi(fresh).headers().containsKey("X-Hdrezka-Android-App"))
+    }
+    @Test fun upgradeCorrectsOldOfficialDefaultAndPreservesCookies() {
+        settings.prefs.edit().clear().putString("provider","https://rezka.ag").putBoolean("official",true).putString("cookies","[]").commit()
+        val upgraded=Settings(ApplicationProvider.getApplicationContext())
+        assertEquals("https://rezka.ag",upgraded.endpoint)
+        assertEquals("[]",upgraded.prefs.getString("cookies",null))
+    }
+    @Test fun mobileNavigationContainsExactlyOriginalFiveActions() {
+        Robolectric.buildActivity(MainActivity::class.java).setup().use { controller ->
+            val labels=mutableListOf<String>()
+            fun collect(view: android.view.View) {
+                if(view is android.widget.ImageButton) labels.add(view.contentDescription.toString())
+                if(view is android.view.ViewGroup) for(i in 0 until view.childCount) collect(view.getChildAt(i))
+            }
+            collect(controller.get().window.decorView)
+            assertEquals(listOf("Главная","Поиск","Закладки","История","Аккаунт"),labels)
+        }
+    }
+    @Test fun htmlLoginResponseShowsActionableErrorInsteadOfJsonException() {
+        okhttp3.mockwebserver.MockWebServer().use {mock ->
+            mock.start();mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody("<!doctype html><html><title>Login</title></html>"))
+            settings.provider=mock.url("/").toString().trimEnd('/')
+            val error=runCatching {RezkaApi(settings).login("fixture","fixture")}.exceptionOrNull()
+            assertNotNull(error);assertTrue(error!!.message.orEmpty().contains("страницу вместо"))
+            assertFalse(error is org.json.JSONException)
+        }
+    }
+    @Test fun postRedirectToHtmlIsReportedInsteadOfParsedAsJson() {
+        okhttp3.mockwebserver.MockWebServer().use {mock ->
+            mock.start();mock.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(302).setHeader("Location","/login"))
+            mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody("<!doctype html><html></html>"))
+            settings.provider=mock.url("/").toString().trimEnd('/')
+            val error=runCatching {RezkaApi(settings).login("fixture","fixture")}.exceptionOrNull()
+            assertTrue(error!!.message.orEmpty().contains("перенаправил"))
+        }
+    }
+    @Test fun ajaxVideoPostUsesOriginalSlashAndKeepsFormFields() {
+        okhttp3.mockwebserver.MockWebServer().use { mock ->
+            mock.start()
+            mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody("""{"success":true,"url":"[720p]https://example.com/video.mp4"}"""))
+            settings.provider=mock.url("/").toString().trimEnd('/')
+            val api=RezkaApi(settings)
+            api.checked("/ajax/get_cdn_series",mapOf("id" to "42","translator_id" to "7","action" to "get_movie"))
+            val request=mock.takeRequest()
+            assertEquals("POST",request.method)
+            assertEquals("/ajax/get_cdn_series/",request.requestUrl!!.encodedPath)
+            val body=request.body.readUtf8()
+            assertTrue(body.contains("name=\"translator_id\""));assertTrue(body.contains("get_movie"))
+        }
+    }
+    @Test fun seriesResponseWithoutSuccessFlagMatchesSourceContract() {
+        okhttp3.mockwebserver.MockWebServer().use { mock ->
+            mock.start()
+            val season="<li class='b-simple_season__item' data-tab_id='1'>Сезон 1</li>"
+            val episode="<div id='simple-episodes-list-1'><li class='b-simple_episode__item' data-episode_id='2'>Серия 2</li></div>"
+            mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody(org.json.JSONObject().put("seasons",season).put("episodes",episode).toString()))
+            settings.provider=mock.url("/").toString().trimEnd('/')
+            val film=Parser.film("<div class='b-post__title'><h1>Сериал</h1></div><li class='b-translator__item' data-translator_id='7'>Перевод</li>","/series/42-test.html")
+            assertEquals("2",RezkaApi(settings).seasons(film,film.voices.first()).single().episodes.single().id)
+            assertEquals("/ajax/get_cdn_series/",mock.takeRequest().requestUrl!!.encodedPath)
+        }
+    }
+    @Test fun websiteSaveKeepsRealTimeAndDoesNotDependOnAnActivityScope() {
+        okhttp3.mockwebserver.MockWebServer().use {mock ->
+            mock.start();settings.provider=mock.url("/").toString().trimEnd('/')
+            mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody("""{"success":true}""").addHeader("Set-Cookie","dle_password=fixture; Path=/"))
+            val api=RezkaApi(settings);api.login("fixture","fixture");mock.takeRequest()
+            mock.enqueue(okhttp3.mockwebserver.MockResponse().setBody("""{"success":false}"""))
+            WatchProgress.saveToWebsite(api,"42","7","3","5",65432)
+            val request=mock.takeRequest(10,java.util.concurrent.TimeUnit.SECONDS)!!
+            assertEquals("/ajax/send_save/",request.requestUrl!!.encodedPath)
+            val body=request.body.readUtf8()
+            assertTrue(body.contains("65"));assertTrue(body.contains("name=\"season\""));assertTrue(body.contains("name=\"episode\""))
+        }
+    }
     @Test fun cookiesPersistWithoutCrossingMirrors() {
         val api=RezkaApi(settings);api.login("fixture","fixture")
         assertTrue(RezkaApi(settings).cookies.signedIn())

@@ -1,0 +1,134 @@
+{
+  "version": "1.0.5-test",
+  "versionCode": 6,
+  "base": "bffd3fc690f8449e531a0be856d651dd9bb60ad9",
+  "branch": "fix/source-ui-parity",
+  "apk": "artifacts/LumenKot-1.0.5-test.apk",
+  "bytes": 7932041,
+  "sha256": "3fcf59c4d834de2d41f32e4d83e11d30520d73d74aa147a357bc0129021365cc",
+  "signing_certificate_sha256": "c46f3246a289ec016eb7ae42590588bd3ec1bea1dbfbe014481d5cf489485929",
+  "same_certificate_as_1_0_4": true,
+  "build": {
+    "assembleRelease": "passed",
+    "assembleDebug": "passed",
+    "assembleDebugAndroidTest": "passed",
+    "testDebugUnitTest": "passed",
+    "lintDebug": "passed"
+  },
+  "unit_tests": [
+    {
+      "name": "com.lumenkot.app.DownloadFlowTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.DownloadLocationTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.HlsOfflineTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.NativeRuntimeTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.ParserTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PipPresentationTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PlaybackLifecycleTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PlaybackOptionsTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.PlayerInteractionTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.lumenkot.app.QualityAndSettingsTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "unit_test_total": 69,
+  "lint": {
+    "Warning": 126
+  },
+  "android": {
+    "status": "not validated on this emulator",
+    "instrumentation_suite_prepared": 14,
+    "full_instrumentation_suite_run": false,
+    "image": "Android 15 API 35 Google APIs x86_64, software emulation without KVM",
+    "tested_variant": "release",
+    "initial_instrumentation_attempt": "startup ANR; first test began, no folder was granted; process exited before assertions completed",
+    "system_anrs_seen": [
+      "System UI is not responding",
+      "Process system is not responding"
+    ],
+    "environment_changes_for_retry": [
+      "disabled Google Search, Android System Intelligence, Bluetooth and GMS on dedicated emulator",
+      "disabled window animations and system error dialogs",
+      "preverify APK bytecode before another launch"
+    ],
+    "folder_test": "failed: DocumentsUI must show the fixture folder; picker was blank and document-provider root queries timed out",
+    "folder_test_assertions_after_grant": "not reached",
+    "release_apk_cold_launch": "am start returned Status: timeout; catalog later drew on screen",
+    "package_preverify": "app and test APKs returned Success",
+    "pip_initial_test_harness": "transient null PlayerView.player during initial orientation transition; changed test to wait for a ready player",
+    "pip_retry": "failed: Video must actually play (condition includes playing state and window focus)",
+    "pip_transition_assertions": "not reached",
+    "release_apk_device_install": "installed; first adb install command timed out, device APK SHA-256 matches artifact",
+    "device_apk_sha256": "3fcf59c4d834de2d41f32e4d83e11d30520d73d74aa147a357bc0129021365cc",
+    "same_apk_as_artifact": true,
+    "instrumentation_passed": 0,
+    "instrumentation_full_attempt": "process exited with startup ANR during the first test",
+    "targeted_folder_attempt": "1 test, 1 failure before folder grant",
+    "targeted_pip_final_attempt": "1 test, 1 failure before actual PiP; Video must actually play",
+    "emulator_shutdown": "adb emu kill acknowledged; emulator exited 139 during shutdown"
+  },
+  "not_verified": [
+    "system SAF folder grant, transfer and offline playback on Android (JVM provider tests passed)",
+    "real PiP expansion, system bars and toolbar timeout on Android (JVM lifecycle/layout tests passed)",
+    "physical removable SD card and third-party document providers",
+    "long background transfers under OEM battery management",
+    "real Premium account and live provider/CDN",
+    "full UI parity with source Lumen"
+  ]
+}

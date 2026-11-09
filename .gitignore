@@ -4,3 +4,6 @@ local.properties
 .idea/
 *.jks
 *.keystore
+.kotlin/
+/work/
+__pycache__/

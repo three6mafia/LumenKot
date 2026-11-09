@@ -1,0 +1,1 @@
+artifacts/LumenKot-1.0.5-test.apk: 1 file pushed, 0 skipped. 20.3 MB/s (7932041 bytes in 0.373s)
