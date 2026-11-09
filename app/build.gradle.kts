@@ -1,4 +1,5 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
+val defaultVersionName = "1.0.6-test"
 android {
     namespace = "com.lumenkot.app"
     compileSdk = 35
@@ -7,8 +8,8 @@ android {
         minSdk = 24
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 7
-        versionName = "1.0.6-test"
+        versionCode = providers.environmentVariable("LUMEN_VERSION_CODE").map { it.toInt() }.getOrElse(7)
+        versionName = providers.environmentVariable("LUMEN_VERSION_NAME").getOrElse(defaultVersionName)
         ndk { abiFilters += listOf("arm64-v8a","x86_64") }
     }
     testOptions {
