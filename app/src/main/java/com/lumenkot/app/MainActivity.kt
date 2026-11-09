@@ -516,9 +516,9 @@ class MainActivity : ComponentActivity() {
                 val repository=HlsDownloads.get(this@MainActivity)
                 val request=withContext(Dispatchers.IO) {
                     val hls=HlsDownloadPlan.isHls(stream.url,repository.networkFactory(api.absolute(f.card.url)))
-                    if(hls || tree!=null) repository.prepare(f,voice,s,e,stream,subtitles,tree,!hls) else null
+                    repository.prepare(f,voice,s,e,stream,subtitles,tree,!hls)
                 }
-                if(request==null) enqueueMp4(f,voice,stream,s,e,subtitles) else {
+                run {
                     val existing=withContext(Dispatchers.IO) {repository.completedCopy(request)}
                     if(existing!=null) {toast("Видео уже скачано в эту папку");return@launch}
                     repository.add(this@MainActivity,request);toast("Загрузка добавлена. Прогресс — в разделе «Загрузки».")
@@ -532,35 +532,6 @@ class MainActivity : ComponentActivity() {
                 if(e is DownloadFolderException) {pendingDownload=selection;rememberDestination=DownloadLocations(this@MainActivity).always;destinationUnavailable=true;showDestinationDialog()}
             } finally {downloadPreparation?.dismiss()}
         }
-    }
-    private fun enqueueMp4(f: Film,voice: Voice,stream: Stream,s: String,e: String,subtitles: List<Subtitle>) {
-        runCatching {
-            val filename=(f.card.title+(if(e.isNotBlank()) " S${s}E${e}" else "")+" ${voice.id} ${stream.quality}").replace(Regex("[^\\p{L}\\p{N} ._-]"),"_")+".mp4"
-            val folders=getExternalFilesDirs("downloads").filterNotNull()
-            val folder=folders.getOrElse(settings.prefs.getInt("downloadStorage",0)) { folders.first() }.apply { mkdirs() }
-            val request=DownloadManager.Request(Uri.parse(stream.url)).setTitle(f.card.title).setDescription(stream.quality).setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED).setDestinationUri(Uri.fromFile(java.io.File(folder,filename)))
-            api.headers().forEach { (k,v) -> request.addRequestHeader(k,v) }
-            val id=(getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
-            val manager=getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            fun sidecar(url: String,name: String): Long {
-                val r=DownloadManager.Request(Uri.parse(url)).setTitle(name).setDestinationUri(Uri.fromFile(java.io.File(folder,name)))
-                api.headers().forEach { (k,v) -> r.addRequestHeader(k,v) }
-                return manager.enqueue(r)
-            }
-            val metadata=JSONObject();val entries=JSONArray()
-            if(settings.prefs.getBoolean("downloadSubtitles",true)) subtitles.forEach { sub ->
-                val extension=if(sub.url.substringBefore('?').endsWith(".srt")) "srt" else "vtt"
-                val name=filename.removeSuffix(".mp4")+"."+sub.title.replace(Regex("[^\\p{L}\\p{N}_-]"),"_")+"."+extension
-                val sid=sidecar(sub.url,name)
-                entries.put(JSONObject().put("id",sid).put("title",sub.title).put("language",sub.language).put("default",sub.default).put("mime",if(extension=="srt") "application/x-subrip" else "text/vtt"))
-            }
-            metadata.put("subtitles",entries)
-            if(settings.prefs.getBoolean("downloadPoster",true) && f.card.image.isNotBlank()) {
-                val image=if(f.card.image.startsWith("http")) f.card.image else Links.static+"/"+f.card.image.trimStart('/')
-                metadata.put("poster",sidecar(image,filename.removeSuffix(".mp4")+".jpg"))
-            }
-            val ids=settings.prefs.getStringSet("downloads",emptySet())!!.toMutableSet();ids.add(id.toString());settings.prefs.edit().putStringSet("downloads",ids).putString("download:$id",metadata.toString()).apply();toast("Загрузка добавлена")
-        }.onFailure { toast(it.message ?: "Не удалось начать загрузку") }
     }
     private fun downloads() {
         page("Загрузки", {
@@ -611,7 +582,7 @@ class MainActivity : ComponentActivity() {
             val row=rows.getOrPut(request.id) {
                 val root=panel();root.addView(text(metadata.optString("title"),19f))
                 val episode=if(metadata.optString("episode").isBlank()) "" else " · S${metadata.optString("season")}E${metadata.optString("episode")}"
-                val format=if(request.mimeType==androidx.media3.common.MimeTypes.APPLICATION_M3U8) "HLS" else "MP4"
+                val format=if(repository.isMp4(request)) "MP4" else if(request.mimeType==androidx.media3.common.MimeTypes.APPLICATION_M3U8) "HLS" else "MP4"
                 root.addView(text("$format · ${metadata.optString("quality")} · ${metadata.optString("voiceTitle")}$episode",14f,muted))
                 root.addView(text(metadata.optString("destination",metadata.optString("root")),12f,muted))
                 val status=text("");root.addView(status)
@@ -625,12 +596,15 @@ class MainActivity : ComponentActivity() {
                 androidx.media3.exoplayer.offline.Download.STATE_FAILED -> settings.prefs.getString("hlsError:${request.id}","Не удалось скачать видео")
                 androidx.media3.exoplayer.offline.Download.STATE_STOPPED -> "Приостановлено · $amount"
                 androidx.media3.exoplayer.offline.Download.STATE_REMOVING -> "Удаление…"
-                else -> if(repository.manager.notMetRequirements!=0) "Ожидание сети · $amount" else if(download.percentDownloaded>=0) "${download.percentDownloaded.toInt().coerceAtMost(99)}% · $amount" else "Загрузка… · $amount"
+                else -> if(repository.phase(request.id)?.let {it!="Скачивание"}==true) "${repository.phase(request.id)}… · $amount" else if(download.state==androidx.media3.exoplayer.offline.Download.STATE_QUEUED) "В очереди · $amount" else if(repository.manager.notMetRequirements!=0) "Ожидание сети · $amount" else if(download.percentDownloaded>=0) "${download.percentDownloaded.toInt().coerceAtMost(99)}% · $amount" else "Загрузка… · $amount"
             }
             if(row.state!=download.state) {
                 row.state=download.state;row.actions.removeAllViews()
                 when(download.state) {
-                    androidx.media3.exoplayer.offline.Download.STATE_COMPLETED -> row.actions.addView(button("▶ Открыть") {openOfflineHls(request.id)})
+                    androidx.media3.exoplayer.offline.Download.STATE_COMPLETED -> {
+                        row.actions.addView(button("▶ Воспроизвести") {openOfflineHls(request.id)})
+                        if(!repository.isMp4(request)) row.actions.addView(button("Сохранить как MP4") {repository.convertToMp4(this,request)})
+                    }
                     androidx.media3.exoplayer.offline.Download.STATE_STOPPED -> row.actions.addView(button("Продолжить загрузку") {repository.resume(this,request.id)})
                     androidx.media3.exoplayer.offline.Download.STATE_FAILED -> {
                         row.actions.addView(button("Повторить") {repository.retry(this,request)})

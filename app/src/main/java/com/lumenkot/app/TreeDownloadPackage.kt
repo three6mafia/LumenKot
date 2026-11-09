@@ -44,6 +44,7 @@ class TreeDownloadPackage(private val context: Context,private val request: Down
         return directory
     }
     private fun fingerprint(): String = request.uri.toString()+"|"+request.streamKeys.joinToString()
+    internal fun outputDirectory(): Uri=folder(true)!!
     fun readIndex(): JSONObject {
         val directory=folder() ?: error("Папка видео не найдена. Проверьте накопитель.")
         val index=documents.find(directory,INDEX) ?: error("Сохранение видео ещё не завершено")

@@ -33,7 +33,7 @@ class HlsDownloadTest {
         try {
             api.request("/hls-control",mapOf("blocked" to "0"))
             val film=api.film("/films/42-native.html")
-            val request=repository.prepare(film,film.voices.first(),"","",Stream("720p","http://127.0.0.1:8765/hls/master.m3u8"),emptyList())
+            val request=repository.prepare(film,film.voices.first(),"","",Stream("720p","http://127.0.0.1:8765/hls/master.m3u8"),emptyList(),exportMp4=false)
             id=request.id
             ActivityScenario.launch(MainActivity::class.java).use {scenario ->
                 scenario.onActivity {activity ->

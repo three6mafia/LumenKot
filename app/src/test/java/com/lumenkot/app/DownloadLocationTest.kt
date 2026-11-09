@@ -64,7 +64,7 @@ class DownloadLocationTest {
         store=HlsDownloads(context,Executor {it.run()})
     }
     @After fun cleanup() {if(::store.isInitialized) store.release();HlsDownloads.resetForTests();if(running) server.shutdown();settings.prefs.edit().clear().commit()}
-    private fun request(mp4: Boolean=false)=store.prepare(film,film.voices.first(),"1","2",Stream("720p",server.url(if(mp4) "/video.mp4" else "/main.m3u8").toString()),emptyList(),tree,mp4)
+    private fun request(mp4: Boolean=false)=store.prepare(film,film.voices.first(),"1","2",Stream("720p",server.url(if(mp4) "/video.mp4" else "/main.m3u8").toString()),emptyList(),tree,mp4,exportMp4=false)
     private fun read(request: androidx.media3.exoplayer.offline.DownloadRequest,path: String,position: Long=0,length: Long=C.LENGTH_UNSET.toLong()): ByteArray =
         DataSourceInputStream(store.offlineFactory(request).createDataSource(),DataSpec.Builder().setUri(server.url(path).toString()).setPosition(position).setLength(length).build()).use {it.readBytes()}
     @Test fun chosenFolderAndAlwaysFlagPersistIndependentlyAndPickerUsesLocalFolders() {

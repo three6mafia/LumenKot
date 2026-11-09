@@ -17,7 +17,8 @@ class LumenDownloadService: DownloadService(4104,1000L,"lumen_downloads",R.strin
     override fun getScheduler(): Scheduler=PlatformScheduler(this,4105)
     override fun getForegroundNotification(downloads: List<Download>,notMetRequirements: Int): Notification {
         val pending=PendingIntent.getActivity(this,4104,Intent(this,MainActivity::class.java).putExtra("showDownloads",true).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        return notifications.buildProgressNotification(this,android.R.drawable.stat_sys_download,pending,getString(R.string.download_notification),downloads,notMetRequirements)
+        val phase=downloads.mapNotNull {HlsDownloads.get(this).phase(it.request.id)}.distinct().joinToString(" · ")
+        return notifications.buildProgressNotification(this,android.R.drawable.stat_sys_download,pending,phase.ifBlank {getString(R.string.download_notification)},downloads,notMetRequirements)
     }
     // Android 15 imposes a time budget on dataSync services. Persist the pause so the user can resume.
     override fun onTimeout(startId: Int,fgsType: Int) {

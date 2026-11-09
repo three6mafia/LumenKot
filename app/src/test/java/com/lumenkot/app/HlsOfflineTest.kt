@@ -114,7 +114,7 @@ ${if(kind=="sub") "segment.vtt" else "segment.aac"}
     private fun stopServer() {server.shutdown();running=false}
     private fun request(quality: String="720p",subtitles: List<Subtitle> = listOf(Subtitle("Russian",server.url("/external.vtt").toString(),"ru",true))): DownloadRequest {
         val film=Parser.film("<div class='b-post__title'><h1>HLS fixture</h1></div><li class='b-translator__item' data-translator_id='7'>Voice</li>","/films/42-fixture.html")
-        return store.prepare(film,film.voices.single(),"1","2",Stream(quality,server.url("/master.m3u8?token=fixture").toString()),subtitles)
+        return store.prepare(film,film.voices.single(),"1","2",Stream(quality,server.url("/master.m3u8?token=fixture").toString()),subtitles,exportMp4=false)
     }
     private fun bytes(request: DownloadRequest,path: String,length: Long=C.LENGTH_UNSET.toLong()): ByteArray {
         val spec=DataSpec.Builder().setUri(server.url(path).toString()).setLength(length).build()

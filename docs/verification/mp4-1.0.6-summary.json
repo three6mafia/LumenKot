@@ -1,0 +1,43 @@
+{
+  "base": "7aca0d63156bc0f0444cfa0bdc46b62175037369",
+  "version": "1.0.6-test",
+  "versionCode": 7,
+  "ffmpeg": "dev.ffmpegkit-maintained:ffmpeg-kit-min:8.1.7",
+  "smartException": "com.arthenica:smart-exception-java:0.2.1",
+  "abis": [
+    "arm64-v8a",
+    "x86_64"
+  ],
+  "unitTests": {
+    "tests": 76,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint": "0 errors, 128 warnings",
+  "assembleRelease": "passed",
+  "assembleDebugAndroidTest": "passed",
+  "apkSignatureVerification": "passed",
+  "javaRuntimeLinkage": "passed; smart-exception-java/common explicitly supplied; APK DEX checked",
+  "apkSha256": "0fbb511c374d284970ed2aa7cebb6458c6a60d1c38a6b57065665fdda28932c4",
+  "sourceSample": {
+    "host": "voidslam.org",
+    "signedUrlStored": false,
+    "httpStatus": 200,
+    "sourceSegments": 215,
+    "sourceDurationSeconds": 1288.977,
+    "sampleSegments": 2,
+    "sampleSourceBytes": 4530800,
+    "mp4DurationSeconds": 12.032989,
+    "video": "H.264 1280x722",
+    "audio": "AAC",
+    "hostRemux": "passed",
+    "applicationDownloaderAndLocalizerWithHostFfmpeg": "passed",
+    "fullSourceDownloaded": false
+  },
+  "androidRuntimeTest": {
+    "status": "not executed",
+    "reason": "No /dev/kvm. API 35 software emulator did not finish system services startup; package service unavailable and ADB shell unresponsive."
+  },
+  "signing": "New debug key; incompatible with the published 1.0.5-test APK signing key."
+}

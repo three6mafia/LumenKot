@@ -62,7 +62,7 @@ class DownloadFlowTest {
             assertTrue(settings.prefs.getStringSet("downloads",emptySet())!!.isEmpty())
         }
     }
-    @Test fun mp4StillQueuesThroughAndroidDownloadManagerAfterExplicitDownload() {
+    @Test fun mp4QueuesThroughTheBuiltInDownloaderAfterExplicitDownload() {
         Robolectric.buildActivity(MainActivity::class.java).setup().use {c ->
             val dialog=menu(c.get(),server.url("/video.mp4?token=fixture").toString())
             dialog.listView.performItemClick(null,0,0)
@@ -70,9 +70,9 @@ class DownloadFlowTest {
             assertNotSame(dialog,destination)
             destination.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
             val end=System.nanoTime()+5_000_000_000L
-            while(System.nanoTime()<end && settings.prefs.getStringSet("downloads",emptySet())!!.isEmpty()) {shadowOf(Looper.getMainLooper()).idle();Thread.sleep(10)}
-            assertEquals(1,settings.prefs.getStringSet("downloads",emptySet())!!.size)
-            assertFalse(settings.prefs.getBoolean("hasHlsDownloads",false))
+            while(System.nanoTime()<end && !settings.prefs.getBoolean("hasHlsDownloads",false)) {shadowOf(Looper.getMainLooper()).idle();Thread.sleep(10)}
+            assertTrue(settings.prefs.getBoolean("hasHlsDownloads",false))
+            assertTrue(settings.prefs.getStringSet("downloads",emptySet())!!.isEmpty())
         }
     }
     @Test fun folderIsAskedOnEachDownloadWhenRememberIsDisabled() {
@@ -93,8 +93,8 @@ class DownloadFlowTest {
         Robolectric.buildActivity(MainActivity::class.java).setup().use {c ->
             val menu=menu(c.get(),server.url("/video.mp4").toString());menu.listView.performItemClick(null,0,0)
             val end=System.nanoTime()+5_000_000_000L
-            while(System.nanoTime()<end && settings.prefs.getStringSet("downloads",emptySet())!!.isEmpty()) {shadowOf(Looper.getMainLooper()).idle();Thread.sleep(10)}
-            assertEquals(1,settings.prefs.getStringSet("downloads",emptySet())!!.size)
+            while(System.nanoTime()<end && !settings.prefs.getBoolean("hasHlsDownloads",false)) {shadowOf(Looper.getMainLooper()).idle();Thread.sleep(10)}
+            assertTrue(settings.prefs.getBoolean("hasHlsDownloads",false))
             settings.prefs.edit().putBoolean("rememberDownloadPath",false).commit()
             menu(c.get(),server.url("/second.mp4").toString()).listView.performItemClick(null,0,0)
             assertNotNull(ShadowAlertDialog.getLatestAlertDialog().findViewById<android.view.View>(R.id.pick_download_folder))
@@ -112,8 +112,8 @@ class DownloadFlowTest {
             assertTrue(settings.prefs.getStringSet("downloads",emptySet())!!.isEmpty())
             restored.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
             val end=System.nanoTime()+5_000_000_000L
-            while(System.nanoTime()<end && settings.prefs.getStringSet("downloads",emptySet())!!.isEmpty()) {shadowOf(Looper.getMainLooper()).idle();Thread.sleep(10)}
-            assertTrue(DownloadLocations(c.get()).always);assertEquals(1,settings.prefs.getStringSet("downloads",emptySet())!!.size)
+            while(System.nanoTime()<end && !settings.prefs.getBoolean("hasHlsDownloads",false)) {shadowOf(Looper.getMainLooper()).idle();Thread.sleep(10)}
+            assertTrue(DownloadLocations(c.get()).always);assertTrue(settings.prefs.getBoolean("hasHlsDownloads",false))
         }
     }
 }
